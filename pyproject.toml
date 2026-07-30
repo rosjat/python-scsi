@@ -3,11 +3,77 @@
 # SPDX-License-Identifier: MIT
 
 [build-system]
+# setuptools 77 is the floor for PEP 639 SPDX license metadata.
 requires = [
-  'setuptools >= 42',
-  'wheel',
-  'setuptools_scm[toml]>=3.4',
+  "setuptools>=77",
+  "setuptools_scm>=8",
 ]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Keep this spelling. PEP 503 normalises PYSCSI to "pyscsi", which is the
+# existing PyPI project; "python-scsi" would normalise differently and create
+# a new, unregistered one.
+name = "PYSCSI"
+description = "Module for calling SCSI devices from Python"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11"
+license = "LGPL-2.1-or-later"
+license-files = ["LICENSE", "LICENSES/*"]
+maintainers = [
+  { name = "Markus Rosjat", email = "markus.rosjat@gmail.com" },
+]
+keywords = ["scsi"]
+# No "License ::" classifiers: PEP 639 forbids combining them with the SPDX
+# license expression above.
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: System :: Hardware",
+  "Typing :: Typed",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/python-scsi/python-scsi"
+Source = "https://github.com/python-scsi/python-scsi"
+Issues = "https://github.com/python-scsi/python-scsi/issues"
+
+[project.optional-dependencies]
+iscsi = ["cython-iscsi"]
+sgio = ["cython-sgio>=1.1.2"]
+dev = [
+  # black and isort are pinned to the exact revs in .pre-commit-config.yaml so
+  # a standalone run cannot format differently from the hook. Bump each in both
+  # files together. isort reads [tool.isort] below with no extra packages -- it
+  # vendors tomli for Python versions that lack stdlib tomllib.
+  "black==24.4.2",
+  "build",
+  "isort==5.13.2",
+  "mypy>=1.11",
+  "pre-commit",
+  "pytest>=8",
+  "setuptools_scm>=8",
+]
+
+[tool.setuptools.packages.find]
+include = ["pyscsi*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+pyscsi = ["py.typed"]
+
+[tool.setuptools_scm]
+# No tag_regex needed: the release tags are bare vX.Y.Z, which setuptools_scm
+# matches by default. fallback_version keeps builds from an exported tree
+# without .git from failing outright.
+fallback_version = "0.0.0"
 
 [tool.isort]
 # These settings ensure that black and isort don't disagree on the imports.
@@ -16,8 +82,6 @@ multi_line_output = 3
 include_trailing_comma = true
 
 known_third_party = ['iscsi', 'sgio']
-
-[tool.setuptools_scm]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -32,10 +96,10 @@ python_classes = []
 [tool.mypy]
 python_version = "3.11"
 files = ["pyscsi", "tests"]
-# Deliberately lenient. Phase 8 of MODERNIZATION-PLAN.html flips this to
-# strict = true and adds a shrinking per-module override list; the goal here is
-# only that mypy runs at all on a supported Python version. The previous
-# mypy.ini pinned python_version = 3.7, which mypy no longer supports.
+# Deliberately lenient: the codebase is almost entirely unannotated, so the
+# goal for now is only that mypy runs. Tighten to strict = true once the
+# annotation sweep lands, keeping a per-module override list that shrinks as
+# modules are converted.
 
 [[tool.mypy.overrides]]
 # Optional Cython transports. Not installed in the dev container, and not
@@ -51,8 +115,8 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 # The custom Enum in pyscsi/utils/enum.py is a metaclass: Enum(some_dict)
 # returns a dynamically built class, so mypy cannot know its members and
-# reports attr-defined on every access. This is the exact problem Phase 6
-# solves by replacing the metaclass with typed container classes, after which
-# ELEMENT_TYPE.STORAGE resolves to int. Delete this override then.
+# reports attr-defined on every access. Replacing that metaclass with typed
+# container classes makes ELEMENT_TYPE.STORAGE resolve to int; drop this
+# override once that lands.
 module = ["tests.test_unmarshall_readelementstatus"]
 disable_error_code = ["attr-defined"]

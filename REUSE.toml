@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 The python-scsi Authors
+#
+# SPDX-License-Identifier: MIT
+
+version = 1
+SPDX-PackageName = "python-scsi"
+SPDX-PackageSupplier = "Markus Rosjat <markus.rosjat@gmail.com>"
+SPDX-PackageDownloadLocation = "https://github.com/python-scsi/python-scsi"
+
+# PEP 561 marker. It must stay byte-empty, so it cannot carry an SPDX header
+# of its own and is annotated here instead.
+[[annotations]]
+path = "pyscsi/py.typed"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The python-scsi Authors"
+SPDX-License-Identifier = "LGPL-2.1-or-later"
