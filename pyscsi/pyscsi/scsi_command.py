@@ -52,6 +52,20 @@ class SCSICommand(metaclass=ExMETA):
         init a byte array representing a command descriptor block with fixed length
         depending on the Opcode
 
+        The length follows the operation code's group code, which is the top
+        three bits of the opcode:
+
+          group 0   0x00-0x1F    6 bytes
+          group 1   0x20-0x3F   10 bytes
+          group 2   0x40-0x5F   10 bytes
+          group 3   0x60-0x7F   not a fixed length -- 0x7E is the extended CDB
+                                and 0x7F the variable length CDB, whose size
+                                comes from the additional length field
+          group 4   0x80-0x9F   16 bytes
+          group 5   0xA0-0xBF   12 bytes
+          group 6   0xC0-0xDF   vendor specific
+          group 7   0xE0-0xFF   vendor specific
+
         :param opcode: a OpCode object
         :return: a byte array
         """
@@ -59,14 +73,27 @@ class SCSICommand(metaclass=ExMETA):
             cdb = bytearray(6)
         elif 0x20 <= opcode.value <= 0x5F:
             cdb = bytearray(10)
-        elif 0x00 <= opcode.value <= 0x1F:
-            raise SCSICommand.OpcodeException
+        elif 0x60 <= opcode.value <= 0x7F:
+            # Group 3 has no fixed length: its size comes from the additional
+            # length field in the CDB itself, which init_cdb never sees. A
+            # command built on 0x7E or 0x7F therefore needs its own sizing and
+            # cannot use this helper.
+            raise SCSICommand.OpcodeException(
+                f"opcode 0x{opcode.value:02X} is a group 3 variable length CDB,"
+                " whose size comes from the additional length field rather than"
+                " the opcode"
+            )
         elif 0x80 <= opcode.value <= 0x9F:
             cdb = bytearray(16)
         elif 0xA0 <= opcode.value <= 0xBF:
             cdb = bytearray(12)
         else:
-            raise SCSICommand.OpcodeException
+            # Groups 6 and 7 are vendor specific, so their length is not
+            # defined by the standard.
+            raise SCSICommand.OpcodeException(
+                f"opcode 0x{opcode.value:02X} is vendor specific and has no"
+                " CDB length defined by the standard"
+            )
         return cdb
 
     @property
