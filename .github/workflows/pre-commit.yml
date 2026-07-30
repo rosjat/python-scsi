@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019 Anthony Sottile
+# SPDX-FileCopyrightText: 2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: MIT
 
@@ -24,4 +25,19 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - uses: actions/setup-python@v7
-    - uses: pre-commit/action@v3.0.1
+      with:
+        # Pin to the project floor. Left unset, the job silently uses whatever
+        # Python is on PATH, so hook behaviour could drift with the runner
+        # image.
+        python-version: '3.11'
+    # pre-commit is invoked directly rather than through pre-commit/action.
+    # That action's last release is v3.0.1 (Feb 2024) and it pulls in
+    # actions/cache@v4, which targets the deprecated Node 20; running
+    # pre-commit ourselves removes the indirection and lets the cache action
+    # be kept current.
+    - uses: actions/cache@v6
+      with:
+        path: ~/.cache/pre-commit
+        key: pre-commit-${{ runner.os }}-py3.11-${{ hashFiles('.pre-commit-config.yaml') }}
+    - run: python -m pip install pre-commit
+    - run: pre-commit run --all-files --show-diff-on-failure
