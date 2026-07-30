@@ -18,3 +18,41 @@ include_trailing_comma = true
 known_third_party = ['iscsi', 'sgio']
 
 [tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+xfail_strict = true
+# The SCSI command class TestUnitReady matches pytest's default Test* class
+# collection pattern, which produces a PytestCollectionWarning on every run.
+# unittest.TestCase subclasses are collected by pytest's unittest plugin
+# regardless of this setting, so clearing the pattern costs no coverage.
+python_classes = []
+
+[tool.mypy]
+python_version = "3.11"
+files = ["pyscsi", "tests"]
+# Deliberately lenient. Phase 8 of MODERNIZATION-PLAN.html flips this to
+# strict = true and adds a shrinking per-module override list; the goal here is
+# only that mypy runs at all on a supported Python version. The previous
+# mypy.ini pinned python_version = 3.7, which mypy no longer supports.
+
+[[tool.mypy.overrides]]
+# Optional Cython transports. Not installed in the dev container, and not
+# needed by the test suite -- both import sites are guarded by try/except
+# ImportError.
+module = ["sgio", "iscsi"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["setuptools", "setuptools_scm"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The custom Enum in pyscsi/utils/enum.py is a metaclass: Enum(some_dict)
+# returns a dynamically built class, so mypy cannot know its members and
+# reports attr-defined on every access. This is the exact problem Phase 6
+# solves by replacing the metaclass with typed container classes, after which
+# ELEMENT_TYPE.STORAGE resolves to int. Delete this override then.
+module = ["tests.test_unmarshall_readelementstatus"]
+disable_error_code = ["attr-defined"]
