@@ -2,10 +2,28 @@
 #
 # SPDX-License-Identifier: MIT
 
+# Byte-compiled / cache
 *.pyc
+__pycache__/
+
+# Editor / OS noise
 *~
-/*.egg-info/
-/.mypy_cache/
+
+# Build artifacts
+*.egg-info/
 /build/
 /dist/
-__pycache__/
+
+# Tool caches
+/.mypy_cache/
+/.pytest_cache/
+/.ruff_cache/
+
+# Virtual environments
+/.venv/
+/venv/
+
+# Coverage
+/.coverage
+/.coverage.*
+/htmlcov/
