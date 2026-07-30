@@ -39,77 +39,34 @@ jobs:
           path: dist/
 
   testpypi:
-    # Smoke test for trusted publishing.
+    # Stays on an API token, deliberately.
     #
-    # The PYSCSI name on TestPyPI belongs to another account, and a package can
-    # only be uploaded to a project you own. So this rebuilds under a throwaway
-    # name set in vars.TESTPYPI_PROJECT_NAME, which you create and own on
-    # test.pypi.org.
+    # The PYSCSI project on test.pypi.org is owned by a different account, and
+    # trusted publishing can only be configured by a project owner. The
+    # long-standing TEST_PYPI_API_TOKEN secret does grant upload rights, so
+    # that is what this uses. Do not "modernise" this job to OIDC -- it will
+    # fail until ownership of the TestPyPI project changes.
     #
-    # What this proves: the id-token permission, the GitHub-to-TestPyPI OIDC
-    # handshake, the environment binding, and the action inputs -- where the
-    # problems usually are. What it does not prove: the trusted-publisher
-    # config for the real project, which is per-project and must be added
-    # separately on pypi.org. Artifact validity is covered by the build job.
-    name: Trusted-publishing smoke test (TestPyPI)
+    # This uploads the same artifact the PyPI job will, so a failure here is a
+    # genuine signal and correctly blocks the release below.
+    name: Publish to TestPyPI (API token)
     needs: build
     # PUBLISH_TESTPYPI must be a *repository* variable, not an environment one:
     # a job-level if: is evaluated before the environment is resolved, so an
     # environment-scoped value reads as empty and silently skips the job.
-    # TESTPYPI_PROJECT_NAME is only read inside a step, where environment
-    # variables do resolve, so it can live on the environment.
     if: vars.PUBLISH_TESTPYPI == 'true'
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-    permissions:
-      # Mints the short-lived OIDC token. No API token is stored or used.
-      id-token: write
+      url: https://test.pypi.org/p/PYSCSI
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.x'
-      - run: pip install build
-      - name: Rebuild under the throwaway project name
-        env:
-          TESTPYPI_PROJECT_NAME: ${{ vars.TESTPYPI_PROJECT_NAME }}
-          # setuptools_scm appends a PEP 440 local version (+g<sha>.d<date>) to
-          # any untagged build, and PyPI rejects local versions outright. A
-          # tagged release is unaffected, but this job runs off workflow_dispatch
-          # where there is no tag, so pin a clean throwaway version instead.
-          # github.run_number keeps it unique per run.
-          SETUPTOOLS_SCM_PRETEND_VERSION: 0.0.1.dev${{ github.run_number }}
-        run: |
-          python - <<'PY'
-          import os
-          import pathlib
-          import re
-
-          name = os.environ.get("TESTPYPI_PROJECT_NAME", "")
-          # Empty would otherwise produce name = "" and a confusing build
-          # error further down.
-          assert name, (
-              "TESTPYPI_PROJECT_NAME is not set; add it as a variable on the "
-              "testpypi environment"
-          )
-          path = pathlib.Path("pyproject.toml")
-          patched, count = re.subn(
-              r'^name = "PYSCSI"$',
-              f'name = "{name}"',
-              path.read_text(),
-              count=1,
-              flags=re.MULTILINE,
-          )
-          # Fail loudly rather than silently uploading under the wrong name.
-          assert count == 1, "could not find the project name line to patch"
-          path.write_text(patched)
-          PY
-          python -m build
+          name: dist
+          path: dist/
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           # Note the hyphen: repository_url is the deprecated spelling.
           repository-url: https://test.pypi.org/legacy/
           # Re-running a workflow for an already-uploaded version is benign and
@@ -118,7 +75,14 @@ jobs:
           skip-existing: true
 
   pypi:
-    name: Publish to PyPI (API token)
+    # Trusted publishing: no stored secret, credentials minted per run and
+    # scoped to this workflow file. Requires a trusted publisher configured on
+    # pypi.org for the PYSCSI project (owner/repo/workflow/environment must
+    # match exactly) -- adding it needs the Owner role there.
+    #
+    # PYPI_API_TOKEN is intentionally no longer referenced here, but must NOT
+    # be revoked: other projects in the org share it.
+    name: Publish to PyPI (trusted publishing)
     needs: [build, testpypi]
     # TestPyPI gates this job: if the dry run cannot upload, the artifact or
     # the upload path is wrong and must not reach PyPI.
@@ -137,15 +101,37 @@ jobs:
     environment:
       name: pypi
       url: https://pypi.org/p/PYSCSI
+    permissions:
+      # Mints the short-lived OIDC token used instead of an API token.
+      id-token: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history so the tag can be checked against master.
+          fetch-depth: 0
+      # A tag alone is not enough to authorise a release: without this, tagging
+      # any feature branch would publish it.
+      #
+      # master is hardcoded on purpose. Resolving it from the repository's
+      # default branch would make the safeguard follow whatever the default is
+      # set to, so a fork with a working branch as its default would accept a
+      # tag on that branch. Releases only ever come from master.
+      - name: Refuse to publish a tag that is not merged into master
+        env:
+          DEFAULT_BRANCH: master
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          if git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
+            echo "Tag $GITHUB_REF_NAME is on $DEFAULT_BRANCH; proceeding."
+          else
+            echo "::error::Tag $GITHUB_REF_NAME points at a commit that is not"\
+                 "merged into $DEFAULT_BRANCH. Refusing to publish to PyPI."
+            exit 1
+          fi
       - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
-      # Still token-based: PYPI_API_TOKEN is shared with other projects in the
-      # org, so it stays in place. Switch this job to trusted publishing --
-      # drop `password`, add `permissions: id-token: write` -- once the
-      # testpypi job above has proven the setup. Do not revoke the token.
+      # No `password:` -- authentication is the OIDC token minted above.
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
