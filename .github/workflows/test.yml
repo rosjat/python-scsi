@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 The python-scsi Authors
+#
+# SPDX-License-Identifier: MIT
+
+name: tests
+
+on:
+  pull_request:
+  push:
+    # Every branch: this repository is developed on feature branches and forks,
+    # so restricting to master would leave most work untested.
+    branches: ['**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Quoted deliberately: unquoted YAML reads 3.10 as the float 3.1.
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # setuptools_scm derives the version from tags; a shallow clone has
+          # none and yields a bogus 0.1.devN.
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -e .[dev]
+      - run: pytest -vv
+
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          # Checked against the project floor: the lowest supported version
+          # catches the most, since newer syntax is rejected there first.
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -e .[dev]
+      - run: mypy

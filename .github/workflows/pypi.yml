@@ -1,36 +1,142 @@
 # SPDX-FileCopyrightText: 2021 The freestyle-hid Authors
+# SPDX-FileCopyrightText: 2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: 0BSD
 
 name: Publish to TestPyPI (and PyPI)
 
-on: push
+on:
+  push:
+    # Was `on: push`, which ran the whole build on every branch push while the
+    # publish steps were tag-gated internally. Releases are tagged vX.Y.Z.
+    tags: ['v*']
+  # Lets a TestPyPI dry run be triggered without cutting a tag.
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build-n-publish:
-    name: Build package and publish on TestPyPI (and PyPI)
+  build:
+    name: Build sdist and wheel
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.x
-    - name: Install pypa/build
-      run: |
-        pip install build
-    - name: Build a binary wheel and a source tarball
-      run: |
-        python -m build --sdist --wheel --outdir dist/ .
-    - name: Publish package to TestPyPI
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        repository_url: https://test.pypi.org/legacy/
-    - name: Publish package to PyPI
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+      - uses: actions/checkout@v7
+        with:
+          # setuptools_scm needs the tags to derive the release version.
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+      - run: pip install build
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  testpypi:
+    # Smoke test for trusted publishing.
+    #
+    # The PYSCSI name on TestPyPI belongs to another account, and a package can
+    # only be uploaded to a project you own. So this rebuilds under a throwaway
+    # name set in vars.TESTPYPI_PROJECT_NAME, which you create and own on
+    # test.pypi.org.
+    #
+    # What this proves: the id-token permission, the GitHub-to-TestPyPI OIDC
+    # handshake, the environment binding, and the action inputs -- where the
+    # problems usually are. What it does not prove: the trusted-publisher
+    # config for the real project, which is per-project and must be added
+    # separately on pypi.org. Artifact validity is covered by the build job.
+    name: Trusted-publishing smoke test (TestPyPI)
+    needs: build
+    # PUBLISH_TESTPYPI must be a *repository* variable, not an environment one:
+    # a job-level if: is evaluated before the environment is resolved, so an
+    # environment-scoped value reads as empty and silently skips the job.
+    # TESTPYPI_PROJECT_NAME is only read inside a step, where environment
+    # variables do resolve, so it can live on the environment.
+    if: vars.PUBLISH_TESTPYPI == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+    permissions:
+      # Mints the short-lived OIDC token. No API token is stored or used.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+      - run: pip install build
+      - name: Rebuild under the throwaway project name
+        env:
+          TESTPYPI_PROJECT_NAME: ${{ vars.TESTPYPI_PROJECT_NAME }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          name = os.environ.get("TESTPYPI_PROJECT_NAME", "")
+          # Empty would otherwise produce name = "" and a confusing build
+          # error further down.
+          assert name, (
+              "TESTPYPI_PROJECT_NAME is not set; add it as a variable on the "
+              "testpypi environment"
+          )
+          path = pathlib.Path("pyproject.toml")
+          patched, count = re.subn(
+              r'^name = "PYSCSI"$',
+              f'name = "{name}"',
+              path.read_text(),
+              count=1,
+              flags=re.MULTILINE,
+          )
+          # Fail loudly rather than silently uploading under the wrong name.
+          assert count == 1, "could not find the project name line to patch"
+          path.write_text(patched)
+          PY
+          python -m build
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        with:
+          # Note the hyphen: repository_url is the deprecated spelling.
+          repository-url: https://test.pypi.org/legacy/
+          # Re-running a workflow for an already-uploaded version is benign and
+          # must not be mistaken for a real failure. Anything else still fails
+          # the job, which gates the PyPI upload below.
+          skip-existing: true
+
+  pypi:
+    name: Publish to PyPI (API token)
+    needs: [build, testpypi]
+    # TestPyPI gates this job: if the dry run cannot upload, the artifact or
+    # the upload path is wrong and must not reach PyPI.
+    #
+    # !cancelled() is required, not decorative. A skipped dependency normally
+    # skips its dependents, so without it, leaving PUBLISH_TESTPYPI unset would
+    # silently disable PyPI publishing too. A skipped TestPyPI job is
+    # tolerated; a failed one is not. Also never runs for a manual dispatch.
+    if: >-
+      !cancelled()
+      && needs.build.result == 'success'
+      && needs.testpypi.result != 'failure'
+      && vars.PUBLISH_PYPI == 'true'
+      && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/PYSCSI
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      # Still token-based: PYPI_API_TOKEN is shared with other projects in the
+      # org, so it stays in place. Switch this job to trusted publishing --
+      # drop `password`, add `permissions: id-token: write` -- once the
+      # testpypi job above has proven the setup. Do not revoke the token.
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
