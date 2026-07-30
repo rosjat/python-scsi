@@ -697,7 +697,7 @@ class SCSI(object):
         count,
         lba,
         command,
-        **kwargs
+        **kwargs,
     ):
         """
         Return a ATAPassThrough12 Instance, check ATA Status Return Descriptor by yourself
@@ -734,7 +734,7 @@ class SCSI(object):
             count,
             lba,
             command,
-            **kwargs
+            **kwargs,
         )
         self.execute(cmd, en_raw_sense=True)
         return cmd
@@ -751,7 +751,7 @@ class SCSI(object):
         count,
         lba,
         command,
-        **kwargs
+        **kwargs,
     ):
         """
         Return a ATAPassThrough16 Instance, check ATA Status Return Descriptor by yourself
@@ -789,7 +789,7 @@ class SCSI(object):
             count,
             lba,
             command,
-            **kwargs
+            **kwargs,
         )
         self.execute(cmd, en_raw_sense=True)
         return cmd

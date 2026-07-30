@@ -47,7 +47,7 @@ class ImportEveryModuleTest(unittest.TestCase):
 
     def test_scsi_device_is_imported_transitively(self):
         # `from .pyscsi import *` in pyscsi/__init__.py pulls in scsi_device
-        # via the __all__ module-name list. Phase 8 replaces that mechanism
-        # for --no-implicit-reexport; this asserts the behaviour it must keep.
+        # via the __all__ module-name list. mypy cannot model that, so the
+        # mechanism will have to change; this pins the behaviour it must keep.
         importlib.import_module("pyscsi")
         self.assertIn("pyscsi.pyscsi.scsi_device", sys.modules)

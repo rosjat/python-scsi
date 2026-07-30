@@ -19,10 +19,10 @@ OPCODE_TABLES = {
 
 
 class OpcodeTableTest(unittest.TestCase):
-    """Structural guard for the Phase 6 Enum -> typed container migration.
+    """Structural guard for the opcode tables.
 
     The tables are accessed by attribute everywhere, so a member lost or
-    renamed during the migration would only surface as an AttributeError in
+    renamed while reworking them would only surface as an AttributeError in
     whichever command happens to be exercised. These assertions pin the shape.
     """
 
@@ -67,9 +67,9 @@ class OpcodeTableTest(unittest.TestCase):
         SPC_OPCODE_A3 and SBC_OPCODE_9E, where the synthetic name is the key
         rather than the OpCode.name.
 
-        Both sbc names are scheduled to be corrected in Phase 5; Phase 2
-        touches no library code, so they are pinned here for now. When that
-        lands, drop the two sbc entries below and keep only the smc one.
+        Both sbc names are scheduled to be corrected against the standard.
+        They are pinned here until then; when the fix lands, drop the two sbc
+        entries below and keep only the smc one.
         """
         mismatches = {
             (name, key, getattr(table, key).name)
@@ -137,7 +137,9 @@ class DuplicateValueTest(unittest.TestCase):
     def test_reverse_lookup_picks_first_insertion_order_match(self):
         actions = enum_command.spc.SPC_OPCODE_A3.serviceaction
         name = actions[0x05]
-        self.assertIn(name, ("REPORT_DEVICE_IDENTIFIER", "REPORT_IDENTIFYING_INFORMATION"))
+        self.assertIn(
+            name, ("REPORT_DEVICE_IDENTIFIER", "REPORT_IDENTIFYING_INFORMATION")
+        )
         self.assertEqual(0x05, getattr(actions, name))
 
 

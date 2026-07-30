@@ -14,7 +14,7 @@ class CdbReadDiscInformationTest(unittest.TestCase):
     """ReadDiscInformation had no test at all.
 
     It is one of the modules that bulk-attaches enum tables onto SCSICommand
-    at import time, so it is directly exposed to the Phase 6 table migration.
+    at import time, so it breaks easily when those tables are reworked.
     """
 
     def test_main(self):
@@ -26,7 +26,9 @@ class CdbReadDiscInformationTest(unittest.TestCase):
             self.assertEqual(scsi_ba_to_int(cdb[7:9]), 1024)
 
             cdb = r.unmarshall_cdb(cdb)
-            self.assertEqual(cdb["opcode"], s.device.opcodes.READ_DISC_INFORMATION.value)
+            self.assertEqual(
+                cdb["opcode"], s.device.opcodes.READ_DISC_INFORMATION.value
+            )
             self.assertEqual(cdb["data_type"], 0)
             self.assertEqual(cdb["alloc_len"], 1024)
 
@@ -43,8 +45,7 @@ class CdbReadDiscInformationTest(unittest.TestCase):
 
     def test_enum_tables_attached(self):
         # These land on the class via the setattr loop in the module body.
-        # Phase 6 replaces that with explicit ClassVar assignments; the values
-        # must not change.
+        # However that attachment is expressed, the values must not change.
         dt = ReadDiscInformation.DISC_INFORMATION_DATA_TYPE
         self.assertEqual(dt.STANDARD_DISC_INFORMATION, 0x00)
         self.assertEqual(dt.TRACK_RESOURCES_INFORMATION, 0x01)
