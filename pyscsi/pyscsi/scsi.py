@@ -51,7 +51,7 @@ from pyscsi.pyscsi.scsi_enum_command import mmc, sbc, smc, spc, ssc
 from pyscsi.utils.converter import get_opcode
 
 
-class SCSI(object):
+class SCSI:
     """
     The interface to  the specialized scsi classes
     """

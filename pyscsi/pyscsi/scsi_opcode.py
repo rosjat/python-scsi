@@ -8,7 +8,7 @@
 from pyscsi.utils.enum import Enum
 
 
-class OpCode(object):
+class OpCode:
     """
     A class to hold information about a scsi operation code
     """
