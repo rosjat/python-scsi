@@ -4,92 +4,58 @@
 
 # Development image for python-scsi.
 #
-# Self-contained: the verification harness is built into the image as three
-# commands, so the image depends on no files outside itself.
+# Carries every supported Python runtime with its own virtualenv, so the whole
+# test matrix runs from a single pull rather than one image per version.
 #
+# Self-contained: the verification harness is built in as four commands, so the
+# image depends on no files outside itself.
+#
+#   pyscsi-matrix                    run the suite on every runtime
 #   pyscsi-tgt-setup                 start emulated iSCSI targets (disk, tape,
 #                                    cd/dvd, media changer) -- needs no repo
 #   pyscsi-verify-iscsi              drive the tools over iSCSI against them
 #   pyscsi-verify-tools /dev/sgN     drive the tools against a real device
 #
-# The repository itself is bind-mounted at /src at run time -- that is the code
-# under test, not a dependency of the image. Nothing is COPYed in, so editing a
-# source file never invalidates a layer, and the build context stays tiny.
-
-ARG PYTHON_VERSION=3.11
-
-# ---------------------------------------------------------------------------
-# Builder. Exists only to compile the two Cython transports; none of the
-# toolchain it needs survives into the published image.
+# The repository is bind-mounted at /src at run time -- that is the code under
+# test, not a dependency of the image. Nothing is COPYed in, so editing a source
+# file never invalidates a layer and the build context stays tiny.
 #
-# Layers run stable to volatile, so a dependency bump rebuilds the pip layers
-# and leaves the apt layer cached.
-# ---------------------------------------------------------------------------
-FROM docker.io/library/python:${PYTHON_VERSION}-slim-bookworm AS builder
+# The runtimes come from uv (python-build-standalone), not from the distro. No
+# apt repository carries all four: Debian bookworm has 3.11 alone, and on Ubuntu
+# noble deadsnakes declines to ship 3.12 and 3.14 because another release
+# packages them. uv is indifferent to the base image, so the base is chosen for
+# size and for the SCSI tooling instead.
 
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+FROM docker.io/library/debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_ROOT_USER_ACTION=ignore \
-    PATH=/opt/venv/bin:$PATH
-
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      gcc \
-      libc6-dev \
-      libiscsi-dev \
-      pkg-config \
-      python3-dev \
- && rm -rf /var/lib/apt/lists/*
-
-RUN python -m venv /opt/venv
-
-# Pure-python tooling: changes most often, so it sits above the transports and
-# a bump here does not force a recompile.
-RUN pip install --no-cache-dir \
-      build \
-      mypy \
-      pre-commit \
-      pytest \
-      "setuptools>=77" \
-      "setuptools_scm>=8"
-
-# One layer each: the two transports version independently, and each takes a
-# compile. Optional -- the test suite never touches either and the library
-# guards both imports, so a failure here must degrade the image, not break it.
-RUN pip install --no-cache-dir "cython-sgio>=1.1.2" \
- || echo "WARNING: cython-sgio unavailable; /dev/sg* targets will not work"
-RUN pip install --no-cache-dir cython-iscsi \
- || echo "WARNING: cython-iscsi unavailable; iscsi:// targets will not work"
-
-# ---------------------------------------------------------------------------
-# Runtime. Carries the shared libraries the extensions link against, but no
-# compiler, headers or -dev packages.
-# ---------------------------------------------------------------------------
-FROM docker.io/library/python:${PYTHON_VERSION}-slim-bookworm
-
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_ROOT_USER_ACTION=ignore \
-    # unbuffered so pytest output streams to the terminal line by line
+    # unbuffered so output streams to the terminal line by line
     PYTHONUNBUFFERED=1 \
     # keep __pycache__ out of the bind-mounted host tree
     PYTHONDONTWRITEBYTECODE=1 \
     # import the package straight from the mount instead of `pip install -e .`,
     # which would write *.egg-info and .pth files into the host tree
     PYTHONPATH=/src \
-    # hook environments and tool caches must not land in the mount either;
-    # pytest and mypy otherwise write .pytest_cache/.mypy_cache into rootdir
+    # hook environments and tool caches must not land in the mount either
     PRE_COMMIT_HOME=/tmp/pre-commit \
     MYPY_CACHE_DIR=/tmp/mypy-cache \
     PYTEST_ADDOPTS="-o cache_dir=/tmp/pytest-cache" \
-    VIRTUAL_ENV=/opt/venv \
-    PATH=/opt/venv/bin:$PATH
+    # every supported runtime, and the one commands default to
+    PYSCSI_VERSIONS="3.11 3.12 3.13 3.14" \
+    PYSCSI_PYTHON=3.11 \
+    # where uv puts the interpreters the venvs are built from; they must survive
+    # the build, since a venv is a thin shim over its base interpreter
+    UV_PYTHON_INSTALL_DIR=/opt/pythons \
+    PATH=/opt/venv/3.11/bin:$PATH
 
-# The most stable layer, so it sits first and stays cached across dependency
-# bumps and harness edits.
+# The most stable layer: nothing here varies with Python or with the project's
+# dependencies, so it stays cached across both.
 #
 # git: required by setuptools_scm and pre-commit.
 # unzip: used to verify py.typed actually ships inside the built wheel.
-# libiscsi7: the shared library cython-iscsi links against at runtime; the -dev
-#   package and pkg-config stay behind in the builder.
+# libiscsi7: the shared library cython-iscsi links against at run time.
 # sg3-utils: reference implementation (sg_inq, sg_modes, sg_readcap, ...) to
 #   cross-check what this library reports against a known-good one.
 # tgt: emulates disk, tape, cd/dvd and media changer targets over iSCSI, so the
@@ -105,20 +71,155 @@ RUN apt-get update \
       unzip \
  && rm -rf /var/lib/apt/lists/*
 
-# The finished virtualenv, compiler left behind.
-COPY --from=builder /opt/venv /opt/venv
+# Runtimes, virtualenvs and the toolchain that compiles the transports, all in
+# ONE layer. A purge in a later layer reclaims nothing -- the files remain in
+# the layer that added them and the removal is only a whiteout. Doing it here
+# takes the image from 1.03 GB to well under half that.
+#
+# 3.11 is the project floor and carries the full toolchain; the others only
+# need to run the suite, which is what they are for.
+#
+# `set -eux` rather than an && chain: a chain ending in `|| true` -- which the
+# cleanup below needs -- returns 0 for the WHOLE chain when an early command
+# fails, so a broken image builds green. That is exactly how an earlier revision
+# shipped with no runtimes at all. The explicit check before the purge is the
+# second guard: it fails the build rather than deferring the discovery to a user.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        curl gcc libc6-dev libiscsi-dev pkg-config; \
+    curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh; \
+    uv python install $PYSCSI_VERSIONS; \
+    for v in $PYSCSI_VERSIONS; do \
+        uv venv --python "$v" --seed "/opt/venv/$v"; \
+        "/opt/venv/$v/bin/pip" install --no-cache-dir -q \
+            pytest "setuptools>=77" "setuptools_scm>=8"; \
+        "/opt/venv/$v/bin/pip" install --no-cache-dir -q \
+            "cython-sgio>=1.1.2" cython-iscsi; \
+    done; \
+    "/opt/venv/$PYSCSI_PYTHON/bin/pip" install --no-cache-dir -q build mypy pre-commit; \
+    for v in $PYSCSI_VERSIONS; do \
+        "/opt/venv/$v/bin/python" -c \
+            "import sys, iscsi, sgio; \
+             got = '%d.%d' % sys.version_info[:2]; \
+             assert got == '$v', '/opt/venv/$v runs ' + got"; \
+    done; \
+    apt-get purge -y curl gcc libc6-dev libiscsi-dev pkg-config; \
+    apt-get autoremove -y; \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /root/.cache /tmp/*; \
+    find / -xdev -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true; \
+    find /opt/pythons /opt/venv -xdev \
+        \( -name 'test' -o -name 'tests' -o -name 'idlelib' -o -name 'turtledemo' \
+           -o -name 'tkinter' \) \
+        -type d -prune -exec rm -rf {} + 2>/dev/null || true; \
+    rm -rf /opt/pythons/*/lib/tcl* /opt/pythons/*/lib/tk* \
+           /opt/pythons/*/lib/itcl* /opt/pythons/*/lib/thread* \
+           /opt/pythons/*/lib/libtcl*.so /opt/pythons/*/lib/libtk*.so \
+           /opt/pythons/*/share/terminfo /opt/pythons/*/share/man \
+           /usr/share/doc /usr/share/man /usr/share/locale
 
-# The bind-mounted repo is owned by a foreign uid. Without this, git refuses to
+# The bind-mounted repo is owned by a foreign uid. Without this git refuses to
 # operate on it ("dubious ownership"), which breaks setuptools_scm and
 # pre-commit. Containers never commit; git runs on the host only.
 RUN git config --global --add safe.directory /src
 
 # ---------------------------------------------------------------------------
+# Shared helpers, sourced by the harness commands.
+#
+# PYSCSI_PYTHON selects the runtime, so every command can be pointed at any
+# version without changing how it is invoked.
+# ---------------------------------------------------------------------------
+RUN cat > /usr/local/lib/pyscsi-report.sh <<'REPORT'
+PY="/opt/venv/${PYSCSI_PYTHON:-3.11}/bin/python"
+[ -x "$PY" ] || { echo "no runtime for PYSCSI_PYTHON=$PYSCSI_PYTHON" >&2; exit 2; }
+
+pass=0
+fail=0
+skip=0
+results=""
+
+run_one() {
+    label="$1"
+    shift
+    echo
+    echo "════════════════════════════════════════════════════════════════════"
+    echo "  $label"
+    echo "  \$ $*"
+    echo "════════════════════════════════════════════════════════════════════"
+    if "$@" 2>&1; then
+        echo "--- PASS: $label"
+        pass=$((pass + 1))
+        results="${results}  PASS  ${label}\n"
+    else
+        rc=$?
+        echo "--- FAIL: $label (exit $rc)"
+        fail=$((fail + 1))
+        results="${results}  FAIL  ${label} (exit ${rc})\n"
+    fi
+}
+
+skip_one() {
+    echo
+    echo "--- SKIP: $1 ($2)"
+    skip=$((skip + 1))
+    results="${results}  SKIP  $1 ($2)\n"
+}
+
+summarise() {
+    echo
+    echo "════════════════════════════════════════════════════════════════════"
+    echo "  summary${1:+ for $1}"
+    echo "════════════════════════════════════════════════════════════════════"
+    printf "%b" "$results"
+    echo "────────────────────────────────────────────────────────────────────"
+    echo "  $pass passed, $fail failed, $skip skipped"
+    echo "════════════════════════════════════════════════════════════════════"
+}
+REPORT
+
+# ---------------------------------------------------------------------------
+# pyscsi-matrix [pytest args]
+#
+# The suite on every runtime, with a summary. This is what the multi-runtime
+# image exists for: the matrix from one pull.
+# ---------------------------------------------------------------------------
+RUN cat > /usr/local/bin/pyscsi-matrix <<'MATRIX' && chmod +x /usr/local/bin/pyscsi-matrix
+#!/bin/bash
+set -u
+cd "${PYSCSI_SRC:-/src}"
+
+rc=0
+summary=""
+for v in ${PYSCSI_VERSIONS:-3.11 3.12 3.13 3.14}; do
+    py="/opt/venv/$v/bin/python"
+    [ -x "$py" ] || { summary="${summary}  SKIP  $v (no runtime)\n"; continue; }
+    echo
+    echo "════════════════════════════════════════════════════════════════════"
+    echo "  Python $v -- $("$py" -V 2>&1)"
+    echo "════════════════════════════════════════════════════════════════════"
+    if "$py" -m pytest "$@"; then
+        summary="${summary}  PASS  $v\n"
+    else
+        summary="${summary}  FAIL  $v (exit $?)\n"
+        rc=1
+    fi
+done
+
+echo
+echo "════════════════════════════════════════════════════════════════════"
+echo "  matrix summary"
+echo "════════════════════════════════════════════════════════════════════"
+printf "%b" "$summary"
+echo "════════════════════════════════════════════════════════════════════"
+exit $rc
+MATRIX
+
+# ---------------------------------------------------------------------------
 # pyscsi-tgt-setup
 #
-# Expose one LUN per SCSI device type over iSCSI, so the ssc, mmc and smc
-# opcode tables and the iSCSI transport can be exercised without owning a tape
-# library or a jukebox. Entirely userspace: no kernel module, no privileges.
+# One LUN per SCSI device type over iSCSI, so the ssc, mmc and smc opcode
+# tables and the iSCSI transport can be exercised without owning a tape library
+# or a jukebox. Entirely userspace: no kernel module, no privileges.
 # ---------------------------------------------------------------------------
 RUN cat > /usr/local/bin/pyscsi-tgt-setup <<'SETUP' && chmod +x /usr/local/bin/pyscsi-tgt-setup
 #!/bin/bash
@@ -131,7 +232,6 @@ mkdir -p "$STORE"
 
 if ! pgrep -x tgtd >/dev/null 2>&1; then
     tgtd >/tmp/tgtd.log 2>&1 &
-    # tgtd needs a moment before tgtadm can reach it.
     for _ in $(seq 1 20); do
         tgtadm --lld iscsi --op show --mode target >/dev/null 2>&1 && break
         sleep 0.5
@@ -182,54 +282,6 @@ echo "  lun 4  cd/dvd         iscsi://127.0.0.1/$IQN/4"
 SETUP
 
 # ---------------------------------------------------------------------------
-# Shared reporting helpers, sourced by both verify commands.
-# ---------------------------------------------------------------------------
-RUN cat > /usr/local/lib/pyscsi-report.sh <<'REPORT'
-pass=0
-fail=0
-skip=0
-results=""
-
-run_one() {
-    label="$1"
-    shift
-    echo
-    echo "════════════════════════════════════════════════════════════════════"
-    echo "  $label"
-    echo "  \$ $*"
-    echo "════════════════════════════════════════════════════════════════════"
-    if "$@" 2>&1; then
-        echo "--- PASS: $label"
-        pass=$((pass + 1))
-        results="${results}  PASS  ${label}\n"
-    else
-        rc=$?
-        echo "--- FAIL: $label (exit $rc)"
-        fail=$((fail + 1))
-        results="${results}  FAIL  ${label} (exit ${rc})\n"
-    fi
-}
-
-skip_one() {
-    echo
-    echo "--- SKIP: $1 ($2)"
-    skip=$((skip + 1))
-    results="${results}  SKIP  $1 ($2)\n"
-}
-
-summarise() {
-    echo
-    echo "════════════════════════════════════════════════════════════════════"
-    echo "  summary${1:+ for $1}"
-    echo "════════════════════════════════════════════════════════════════════"
-    printf "%b" "$results"
-    echo "────────────────────────────────────────────────────────────────────"
-    echo "  $pass passed, $fail failed, $skip skipped"
-    echo "════════════════════════════════════════════════════════════════════"
-}
-REPORT
-
-# ---------------------------------------------------------------------------
 # pyscsi-verify-tools /dev/sgN
 #
 # Drive the tools and examples against a real device. Selection is by
@@ -245,60 +297,60 @@ set -u
 DEVICE="${1:?usage: pyscsi-verify-tools /dev/sgN}"
 cd "${PYSCSI_SRC:-/src}"
 
-DEVTYPE=$(python - "$DEVICE" <<'PY'
+DEVTYPE=$("$PY" - "$DEVICE" <<'PY_EOF'
 import sys
 from pyscsi.pyscsi.scsi import SCSI
 from pyscsi.utils import init_device
 
 with SCSI(init_device(sys.argv[1])) as s:
     print(s.inquiry().result["peripheral_device_type"])
-PY
+PY_EOF
 )
 
 echo "════════════════════════════════════════════════════════════════════"
 echo "  python-scsi tool verification"
 echo "  device      : $DEVICE"
 echo "  device type : $DEVTYPE  (0=disk 1=tape 5=cd/dvd 8=changer)"
-echo "  python      : $(python --version 2>&1)"
-echo "  sgio        : $(python -c 'import sgio; print("available")' 2>&1)"
+echo "  python      : $("$PY" -V 2>&1)"
+echo "  sgio        : $("$PY" -c 'import sgio; print("available")' 2>&1)"
 echo "════════════════════════════════════════════════════════════════════"
 
-run_one "tools/inquiry.py  standard INQUIRY"   python tools/inquiry.py "$DEVICE"
-run_one "tools/inquiry.py  VPD 0x00 supported" python tools/inquiry.py -p 00 "$DEVICE"
-run_one "tools/inquiry.py  VPD 0x83 device id" python tools/inquiry.py -p 83 "$DEVICE"
-run_one "examples/reportluns.py"               python examples/reportluns.py "$DEVICE"
+run_one "tools/inquiry.py  standard INQUIRY"   "$PY" tools/inquiry.py "$DEVICE"
+run_one "tools/inquiry.py  VPD 0x00 supported" "$PY" tools/inquiry.py -p 00 "$DEVICE"
+run_one "tools/inquiry.py  VPD 0x83 device id" "$PY" tools/inquiry.py -p 83 "$DEVICE"
+run_one "examples/reportluns.py"               "$PY" examples/reportluns.py "$DEVICE"
 
 if [ "$DEVTYPE" = "0" ]; then
-    run_one "tools/inquiry.py  VPD 0xb0 block limits"   python tools/inquiry.py -p b0 "$DEVICE"
-    run_one "tools/inquiry.py  VPD 0xb1 block dev char" python tools/inquiry.py -p b1 "$DEVICE"
-    run_one "tools/inquiry.py  VPD 0xb2 provisioning"   python tools/inquiry.py -p b2 "$DEVICE"
-    run_one "examples/readcapacity10.py"                python examples/readcapacity10.py "$DEVICE"
-    run_one "examples/readcapacity16.py"                python examples/readcapacity16.py "$DEVICE"
-    run_one "examples/read16.py  (read-only)"           python examples/read16.py "$DEVICE"
+    run_one "tools/inquiry.py  VPD 0xb0 block limits"   "$PY" tools/inquiry.py -p b0 "$DEVICE"
+    run_one "tools/inquiry.py  VPD 0xb1 block dev char" "$PY" tools/inquiry.py -p b1 "$DEVICE"
+    run_one "tools/inquiry.py  VPD 0xb2 provisioning"   "$PY" tools/inquiry.py -p b2 "$DEVICE"
+    run_one "examples/readcapacity10.py"                "$PY" examples/readcapacity10.py "$DEVICE"
+    run_one "examples/readcapacity16.py"                "$PY" examples/readcapacity16.py "$DEVICE"
+    run_one "examples/read16.py  (read-only)"           "$PY" examples/read16.py "$DEVICE"
 
     # swp.py reads the SWP bit out of the control mode page (0x0A). Ask the
     # device which pages it has first: a device without 0x0A cannot answer,
     # which is a capability gap rather than a tool failure.
     if sg_modes --all "$DEVICE" 2>/dev/null | grep -q ">> Control"; then
-        run_one "tools/swp.py  software write protect" python tools/swp.py "$DEVICE"
+        run_one "tools/swp.py  software write protect" "$PY" tools/swp.py "$DEVICE"
     else
         skip_one "tools/swp.py" "device does not implement the control mode page 0x0A"
     fi
 
-    run_one "tools/getlbastatus.py" python tools/getlbastatus.py "$DEVICE"
+    run_one "tools/getlbastatus.py" "$PY" tools/getlbastatus.py "$DEVICE"
 else
     skip_one "block device tools" "device type $DEVTYPE is not a disk"
 fi
 
 if [ "$DEVTYPE" = "5" ]; then
-    run_one "examples/read_disc_information.py" python examples/read_disc_information.py "$DEVICE"
-    run_one "examples/read_cd.py"               python examples/read_cd.py "$DEVICE"
+    run_one "examples/read_disc_information.py" "$PY" examples/read_disc_information.py "$DEVICE"
+    run_one "examples/read_cd.py"               "$PY" examples/read_cd.py "$DEVICE"
 else
     skip_one "mmc tools" "device type $DEVTYPE is not cd/dvd"
 fi
 
 if [ "$DEVTYPE" = "8" ]; then
-    run_one "tools/mtx.py status" python tools/mtx.py -f "$DEVICE" status
+    run_one "tools/mtx.py status" "$PY" tools/mtx.py -f "$DEVICE" status
 else
     skip_one "tools/mtx.py" "device type $DEVTYPE is not a media changer"
 fi
@@ -342,7 +394,8 @@ echo "════════════════════════�
 echo "  python-scsi verification over iSCSI"
 echo "  portal : $PORTAL"
 echo "  target : $IQN"
-echo "  iscsi  : $(python -c 'import iscsi; print("cython-iscsi available")' 2>&1)"
+echo "  python : $("$PY" -V 2>&1)"
+echo "  iscsi  : $("$PY" -c 'import iscsi; print("cython-iscsi available")' 2>&1)"
 echo "════════════════════════════════════════════════════════════════════"
 
 DISK="iscsi://$PORTAL/$IQN/1"
@@ -350,7 +403,7 @@ CHANGER="iscsi://$PORTAL/$IQN/2"
 TAPE="iscsi://$PORTAL/$IQN/3"
 CDROM="iscsi://$PORTAL/$IQN/4"
 
-run_one "device types over iSCSI" python - "$DISK" "$CHANGER" "$TAPE" "$CDROM" <<'PY'
+run_one "device types over iSCSI" "$PY" - "$DISK" "$CHANGER" "$TAPE" "$CDROM" <<'PY_EOF'
 import sys
 from pyscsi.pyscsi.scsi import SCSI
 from pyscsi.utils import init_device
@@ -364,21 +417,21 @@ for url in sys.argv[1:]:
         product = bytes(r["product_identification"]).decode().strip()
         print(f"  lun {url.rsplit('/', 1)[1]}  type={dt:2d} {names.get(dt, '?'):14s} "
               f"{vendor} {product}")
-PY
+PY_EOF
 
-run_one "disk    tools/inquiry.py"           python tools/inquiry.py "$DISK"
-run_one "disk    examples/readcapacity10.py" python examples/readcapacity10.py "$DISK"
-run_one "disk    examples/readcapacity16.py" python examples/readcapacity16.py "$DISK"
-run_one "disk    examples/reportluns.py"     python examples/reportluns.py "$DISK"
+run_one "disk    tools/inquiry.py"           "$PY" tools/inquiry.py "$DISK"
+run_one "disk    examples/readcapacity10.py" "$PY" examples/readcapacity10.py "$DISK"
+run_one "disk    examples/readcapacity16.py" "$PY" examples/readcapacity16.py "$DISK"
+run_one "disk    examples/reportluns.py"     "$PY" examples/reportluns.py "$DISK"
 
-run_one "changer tools/inquiry.py"           python tools/inquiry.py "$CHANGER"
-run_one "changer tools/mtx.py status"        python tools/mtx.py -f "$CHANGER" status
+run_one "changer tools/inquiry.py"           "$PY" tools/inquiry.py "$CHANGER"
+run_one "changer tools/mtx.py status"        "$PY" tools/mtx.py -f "$CHANGER" status
 
-run_one "tape    tools/inquiry.py"           python tools/inquiry.py "$TAPE"
+run_one "tape    tools/inquiry.py"           "$PY" tools/inquiry.py "$TAPE"
 
-run_one "cd      tools/inquiry.py"           python tools/inquiry.py "$CDROM"
+run_one "cd      tools/inquiry.py"           "$PY" tools/inquiry.py "$CDROM"
 run_one "cd      examples/read_disc_information.py" \
-    python examples/read_disc_information.py "$CDROM"
+    "$PY" examples/read_disc_information.py "$CDROM"
 
 run_one "reference iscsi-ls" iscsi-ls -s "iscsi://$PORTAL"
 
@@ -394,6 +447,6 @@ CMD ["pytest", "-vv"]
 # layer below them, and image.source is what links the package to the
 # repository on ghcr.
 LABEL org.opencontainers.image.title="python-scsi dev environment" \
-      org.opencontainers.image.description="Python, both SCSI transports, sg3_utils and tgt" \
+      org.opencontainers.image.description="Python 3.11-3.14, both SCSI transports, sg3_utils and tgt" \
       org.opencontainers.image.source="https://github.com/python-scsi/python-scsi" \
       org.opencontainers.image.licenses="MIT"
