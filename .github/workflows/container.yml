@@ -16,6 +16,11 @@ on:
     paths:
       - 'containers/Containerfile'
       - '.github/workflows/container.yml'
+  # The transports are built from the tip of their repositories, so a new
+  # cython-sgio or cython-iscsi commit is otherwise picked up only when the
+  # Containerfile itself changes. Both move rarely enough that running this by
+  # hand when they do beats rebuilding on a schedule that would almost always
+  # find nothing.
   workflow_dispatch:
 
 permissions:
@@ -24,9 +29,6 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  PYTHON_VERSION: '3.11'
 
 jobs:
   container:
@@ -46,6 +48,23 @@ jobs:
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "ref=ghcr.io/${owner}/python-scsi-dev" >> "$GITHUB_OUTPUT"
 
+      # Pin both transports to the commit that is current now. Passing `master`
+      # would cache on that literal string, so the layer would be reused and the
+      # image would keep whatever was built the first time. A SHA changes when
+      # upstream does, which both busts the cache and records exactly what went
+      # into the image.
+      - name: Resolve the transport revisions
+        id: transports
+        run: |
+          set -eu
+          for repo in cython-sgio cython-iscsi; do
+            sha=$(git ls-remote "https://github.com/python-scsi/${repo}.git" \
+                    refs/heads/master | cut -f1)
+            [ -n "$sha" ] || { echo "could not resolve ${repo} master" >&2; exit 1; }
+            echo "${repo}: ${sha}"
+            echo "${repo//-/_}=${sha}" >> "$GITHUB_OUTPUT"
+          done
+
       - uses: docker/setup-buildx-action@v4
 
       - name: Log in to ghcr.io
@@ -64,7 +83,9 @@ jobs:
         with:
           context: containers
           file: containers/Containerfile
-          build-args: PYTHON_VERSION=${{ env.PYTHON_VERSION }}
+          build-args: |
+            SGIO_REF=${{ steps.transports.outputs.cython_sgio }}
+            ISCSI_REF=${{ steps.transports.outputs.cython_iscsi }}
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           # Also export to the local daemon so the smoke test below can run it,
@@ -72,7 +93,6 @@ jobs:
           load: true
           tags: |
             ${{ steps.image.outputs.ref }}:latest
-            ${{ steps.image.outputs.ref }}:${{ env.PYTHON_VERSION }}
             ${{ steps.image.outputs.ref }}:${{ github.sha }}
           # Without this every run reinstalls apt and recompiles both Cython
           # extensions. With it, an unchanged build is close to instant.
@@ -87,9 +107,16 @@ jobs:
           IMAGE: ${{ steps.image.outputs.ref }}:latest
         run: |
           set -eu
-          echo "--- both transports import ---"
-          docker run --rm "$IMAGE" \
-            python -c "import sgio, iscsi; print('sgio + iscsi OK')"
+          echo "--- every runtime, with the transport builds it got ---"
+          docker run --rm "$IMAGE" bash -c '
+            for v in $PYSCSI_VERSIONS; do
+              "/opt/venv/$v/bin/python" -c "
+          import sgio, iscsi
+          from importlib.metadata import version
+          print(\"  python $v  cython-sgio %-24s cython-iscsi %s\"
+                % (version(\"cython-sgio\"), version(\"cython-iscsi\")))
+          "
+            done'
 
           echo "--- harness commands are on PATH ---"
           docker run --rm "$IMAGE" \

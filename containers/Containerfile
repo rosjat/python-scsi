@@ -71,6 +71,20 @@ RUN apt-get update \
       unzip \
  && rm -rf /var/lib/apt/lists/*
 
+# The transports are built from their repositories, not installed from PyPI:
+# the releases lag the source, and this image exists to test against what the
+# projects actually are. cython-iscsi 1.0 on PyPI predates Context.lun_reset(),
+# for one.
+#
+# These are build arguments so a caller can pin exact commits. That matters for
+# more than reproducibility: with the default `master` the layer caches on the
+# literal string, so a rebuild would silently reuse whatever was current when it
+# was first built. CI resolves both refs to commit SHAs and passes them, which
+# makes an upstream commit change the argument and rebuild the layer. Locally,
+# pass --build-arg or --no-cache to refresh.
+ARG SGIO_REF=master
+ARG ISCSI_REF=master
+
 # Runtimes, virtualenvs and the toolchain that compiles the transports, all in
 # ONE layer. A purge in a later layer reclaims nothing -- the files remain in
 # the layer that added them and the removal is only a whiteout. Doing it here
@@ -95,14 +109,18 @@ RUN set -eux; \
         "/opt/venv/$v/bin/pip" install --no-cache-dir -q \
             pytest "setuptools>=77" "setuptools_scm>=8"; \
         "/opt/venv/$v/bin/pip" install --no-cache-dir -q \
-            "cython-sgio>=1.1.2" cython-iscsi; \
+            "git+https://github.com/python-scsi/cython-sgio.git@${SGIO_REF}" \
+            "git+https://github.com/python-scsi/cython-iscsi.git@${ISCSI_REF}"; \
     done; \
     "/opt/venv/$PYSCSI_PYTHON/bin/pip" install --no-cache-dir -q build mypy pre-commit; \
     for v in $PYSCSI_VERSIONS; do \
         "/opt/venv/$v/bin/python" -c \
             "import sys, iscsi, sgio; \
+             from importlib.metadata import version; \
              got = '%d.%d' % sys.version_info[:2]; \
-             assert got == '$v', '/opt/venv/$v runs ' + got"; \
+             assert got == '$v', '/opt/venv/$v runs ' + got; \
+             print('  python %-5s  cython-sgio %-24s cython-iscsi %s' \
+                   % (got, version('cython-sgio'), version('cython-iscsi')))"; \
     done; \
     apt-get purge -y curl gcc libc6-dev libiscsi-dev pkg-config; \
     apt-get autoremove -y; \
