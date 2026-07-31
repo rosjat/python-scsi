@@ -217,7 +217,7 @@ sbc_opcodes = {
     "RECEIVE_COPY_RESULTS": OpCode("RECEIVE_COPY_RESULTS", 0x84, {}),
     "RECEIVE_DIAGNOSTIC_RESULTS": OpCode("RECEIVE_DIAGNOSTIC_RESULTS", 0x1C, {}),
     "REDUNDANCY_GROUP_IN": OpCode("REDUNDANCY_GROUP_IN", 0xBA, {}),
-    "REDUNDANCY_GROUP_OUT": OpCode("REDUNDANCY_GROUP_OT", 0xBB, {}),
+    "REDUNDANCY_GROUP_OUT": OpCode("REDUNDANCY_GROUP_OUT", 0xBB, {}),
     "REPORT_LUNS": OpCode("REPORT_LUNS", 0xA0, {}),
     "REQUEST_SENSE": OpCode("REQUEST_SENSE", 0x03, {}),
     "SANITIZE": OpCode(
@@ -244,7 +244,7 @@ sbc_opcodes = {
     "VERIFY_12": OpCode("VERIFY_12", 0xAF, {}),
     "VERIFY_16": OpCode("VERIFY_16", 0x8F, {}),
     "VOLUME_SET_IN": OpCode("VOLUME_SET_IN", 0xBE, {}),
-    "VOLUME_SET_OUT": OpCode("VOLUME_SET_IN", 0xBF, {}),
+    "VOLUME_SET_OUT": OpCode("VOLUME_SET_OUT", 0xBF, {}),
     "WRITE_6": OpCode("WRITE_6", 0x0A, {}),
     "WRITE_10": OpCode("WRITE_10", 0x2A, {}),
     "WRITE_12": OpCode("WRITE_12", 0xAA, {}),

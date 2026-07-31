@@ -46,30 +46,17 @@ class OpcodeTableTest(unittest.TestCase):
                     self.assertIsInstance(opcode.value, int)
 
     def test_opcode_name_matches_key_except_known_deviations(self):
-        """A table key and its OpCode.name normally agree. Three do not.
+        """A table key and its OpCode.name normally agree. One does not.
 
-        In two sbc entries the key matches the T10 operation code list while
-        OpCode.name does not (https://www.t10.org/lists/op-num.htm, Direct
-        Access column):
+        SMC_OPCODE_1B is deliberate: it is the synthetic name for an opcode
+        carrying service actions, inverted relative to SPC_OPCODE_A3 and
+        SBC_OPCODE_9E where the synthetic name is the key rather than the
+        OpCode.name. Its key is already the correct T10 name for 0x1B on
+        media changers.
 
-          sbc:220  key REDUNDANCY_GROUP_OUT -> name REDUNDANCY_GROUP_OT
-                   0xBBh is REDUNDANCY GROUP (OUT); no "OT" form exists.
-          sbc:247  key VOLUME_SET_OUT       -> name VOLUME_SET_IN
-                   0xBFh is VOLUME SET (OUT); 0xBEh is VOLUME SET (IN).
-
-        Both are spelled per the standard in the smc table. The effect is
-        display-only: OpCode.name is read solely by __str__/__repr__, while
-        every lookup goes through the key, which is why these never caused a
-        functional problem.
-
-        The third is deliberate: SMC_OPCODE_1B is the synthetic name for an
-        opcode carrying service actions. It is inverted relative to
-        SPC_OPCODE_A3 and SBC_OPCODE_9E, where the synthetic name is the key
-        rather than the OpCode.name.
-
-        Both sbc names are scheduled to be corrected against the standard.
-        They are pinned here until then; when the fix lands, drop the two sbc
-        entries below and keep only the smc one.
+        Two sbc entries used to disagree with the T10 operation code list
+        (https://www.t10.org/lists/op-num.htm) and have since been corrected;
+        this assertion is what keeps any new divergence visible.
         """
         mismatches = {
             (name, key, getattr(table, key).name)
@@ -78,13 +65,24 @@ class OpcodeTableTest(unittest.TestCase):
             if key != getattr(table, key).name
         }
         self.assertEqual(
-            {
-                ("sbc", "REDUNDANCY_GROUP_OUT", "REDUNDANCY_GROUP_OT"),
-                ("sbc", "VOLUME_SET_OUT", "VOLUME_SET_IN"),
-                ("smc", "OPEN_CLOSE_IMPORT_EXPORT_ELEMENT", "SMC_OPCODE_1B"),
-            },
+            {("smc", "OPEN_CLOSE_IMPORT_EXPORT_ELEMENT", "SMC_OPCODE_1B")},
             mismatches,
         )
+
+    def test_corrected_names_match_the_standard(self):
+        # T10 op-num: BBh is REDUNDANCY GROUP (OUT), BFh is VOLUME SET (OUT),
+        # BEh is VOLUME SET (IN). smc spells all three per the standard; sbc
+        # previously did not.
+        for table in (enum_command.sbc, enum_command.smc):
+            with self.subTest(table=table):
+                self.assertEqual(
+                    "REDUNDANCY_GROUP_OUT", table.REDUNDANCY_GROUP_OUT.name
+                )
+                self.assertEqual(0xBB, table.REDUNDANCY_GROUP_OUT.value)
+                self.assertEqual("VOLUME_SET_OUT", table.VOLUME_SET_OUT.name)
+                self.assertEqual(0xBF, table.VOLUME_SET_OUT.value)
+                self.assertEqual("VOLUME_SET_IN", table.VOLUME_SET_IN.name)
+                self.assertEqual(0xBE, table.VOLUME_SET_IN.value)
 
     def test_known_opcodes(self):
         self.assertEqual(0x12, enum_command.spc.INQUIRY.value)
