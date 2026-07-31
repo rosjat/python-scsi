@@ -1,0 +1,399 @@
+# SPDX-FileCopyrightText: 2026 The python-scsi Authors
+#
+# SPDX-License-Identifier: MIT
+
+# Development image for python-scsi.
+#
+# Self-contained: the verification harness is built into the image as three
+# commands, so the image depends on no files outside itself.
+#
+#   pyscsi-tgt-setup                 start emulated iSCSI targets (disk, tape,
+#                                    cd/dvd, media changer) -- needs no repo
+#   pyscsi-verify-iscsi              drive the tools over iSCSI against them
+#   pyscsi-verify-tools /dev/sgN     drive the tools against a real device
+#
+# The repository itself is bind-mounted at /src at run time -- that is the code
+# under test, not a dependency of the image. Nothing is COPYed in, so editing a
+# source file never invalidates a layer, and the build context stays tiny.
+
+ARG PYTHON_VERSION=3.11
+
+# ---------------------------------------------------------------------------
+# Builder. Exists only to compile the two Cython transports; none of the
+# toolchain it needs survives into the published image.
+#
+# Layers run stable to volatile, so a dependency bump rebuilds the pip layers
+# and leaves the apt layer cached.
+# ---------------------------------------------------------------------------
+FROM docker.io/library/python:${PYTHON_VERSION}-slim-bookworm AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore \
+    PATH=/opt/venv/bin:$PATH
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      gcc \
+      libc6-dev \
+      libiscsi-dev \
+      pkg-config \
+      python3-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+
+# Pure-python tooling: changes most often, so it sits above the transports and
+# a bump here does not force a recompile.
+RUN pip install --no-cache-dir \
+      build \
+      mypy \
+      pre-commit \
+      pytest \
+      "setuptools>=77" \
+      "setuptools_scm>=8"
+
+# One layer each: the two transports version independently, and each takes a
+# compile. Optional -- the test suite never touches either and the library
+# guards both imports, so a failure here must degrade the image, not break it.
+RUN pip install --no-cache-dir "cython-sgio>=1.1.2" \
+ || echo "WARNING: cython-sgio unavailable; /dev/sg* targets will not work"
+RUN pip install --no-cache-dir cython-iscsi \
+ || echo "WARNING: cython-iscsi unavailable; iscsi:// targets will not work"
+
+# ---------------------------------------------------------------------------
+# Runtime. Carries the shared libraries the extensions link against, but no
+# compiler, headers or -dev packages.
+# ---------------------------------------------------------------------------
+FROM docker.io/library/python:${PYTHON_VERSION}-slim-bookworm
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore \
+    # unbuffered so pytest output streams to the terminal line by line
+    PYTHONUNBUFFERED=1 \
+    # keep __pycache__ out of the bind-mounted host tree
+    PYTHONDONTWRITEBYTECODE=1 \
+    # import the package straight from the mount instead of `pip install -e .`,
+    # which would write *.egg-info and .pth files into the host tree
+    PYTHONPATH=/src \
+    # hook environments and tool caches must not land in the mount either;
+    # pytest and mypy otherwise write .pytest_cache/.mypy_cache into rootdir
+    PRE_COMMIT_HOME=/tmp/pre-commit \
+    MYPY_CACHE_DIR=/tmp/mypy-cache \
+    PYTEST_ADDOPTS="-o cache_dir=/tmp/pytest-cache" \
+    VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH
+
+# The most stable layer, so it sits first and stays cached across dependency
+# bumps and harness edits.
+#
+# git: required by setuptools_scm and pre-commit.
+# unzip: used to verify py.typed actually ships inside the built wheel.
+# libiscsi7: the shared library cython-iscsi links against at runtime; the -dev
+#   package and pkg-config stay behind in the builder.
+# sg3-utils: reference implementation (sg_inq, sg_modes, sg_readcap, ...) to
+#   cross-check what this library reports against a known-good one.
+# tgt: emulates disk, tape, cd/dvd and media changer targets over iSCSI, so the
+#   ssc, mmc and smc opcode tables can be exercised without that hardware.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      git \
+      libiscsi-bin \
+      libiscsi7 \
+      sg3-utils \
+      tgt \
+      unzip \
+ && rm -rf /var/lib/apt/lists/*
+
+# The finished virtualenv, compiler left behind.
+COPY --from=builder /opt/venv /opt/venv
+
+# The bind-mounted repo is owned by a foreign uid. Without this, git refuses to
+# operate on it ("dubious ownership"), which breaks setuptools_scm and
+# pre-commit. Containers never commit; git runs on the host only.
+RUN git config --global --add safe.directory /src
+
+# ---------------------------------------------------------------------------
+# pyscsi-tgt-setup
+#
+# Expose one LUN per SCSI device type over iSCSI, so the ssc, mmc and smc
+# opcode tables and the iSCSI transport can be exercised without owning a tape
+# library or a jukebox. Entirely userspace: no kernel module, no privileges.
+# ---------------------------------------------------------------------------
+RUN cat > /usr/local/bin/pyscsi-tgt-setup <<'SETUP' && chmod +x /usr/local/bin/pyscsi-tgt-setup
+#!/bin/bash
+set -eu
+
+IQN="${PYSCSI_IQN:-iqn.2026-01.org.pyscsi:test}"
+STORE=/var/lib/tgt
+
+mkdir -p "$STORE"
+
+if ! pgrep -x tgtd >/dev/null 2>&1; then
+    tgtd >/tmp/tgtd.log 2>&1 &
+    # tgtd needs a moment before tgtadm can reach it.
+    for _ in $(seq 1 20); do
+        tgtadm --lld iscsi --op show --mode target >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+fi
+
+if tgtadm --lld iscsi --op show --mode target 2>/dev/null | grep -q "$IQN"; then
+    echo "target $IQN already configured"
+    exit 0
+fi
+
+truncate -s 64M "$STORE/disk.img"
+truncate -s 64M "$STORE/tape.img"
+truncate -s 64M "$STORE/cd.iso"
+truncate -s 1M  "$STORE/changer.img"
+
+tgtadm --lld iscsi --op new --mode target --tid 1 -T "$IQN"
+
+tgtadm --lld iscsi --op new --mode logicalunit --tid 1 --lun 1 \
+    -b "$STORE/disk.img"
+
+tgtadm --lld iscsi --op new --mode logicalunit --tid 1 --lun 2 \
+    -b "$STORE/changer.img" --device-type=changer
+# SMC element types: 1 medium transport, 2 storage, 3 import/export,
+# 4 data transfer. Addresses are arbitrary but must not overlap.
+tgtadm --lld iscsi --op update --mode logicalunit --tid 1 --lun 2 \
+    --params element_type=1,start_address=1,quantity=1
+tgtadm --lld iscsi --op update --mode logicalunit --tid 1 --lun 2 \
+    --params element_type=2,start_address=10,quantity=8
+tgtadm --lld iscsi --op update --mode logicalunit --tid 1 --lun 2 \
+    --params element_type=3,start_address=100,quantity=2
+tgtadm --lld iscsi --op update --mode logicalunit --tid 1 --lun 2 \
+    --params element_type=4,start_address=200,quantity=2
+
+tgtadm --lld iscsi --op new --mode logicalunit --tid 1 --lun 3 \
+    -b "$STORE/tape.img" --device-type=tape
+
+tgtadm --lld iscsi --op new --mode logicalunit --tid 1 --lun 4 \
+    -b "$STORE/cd.iso" --device-type=cd
+
+tgtadm --lld iscsi --op bind --mode target --tid 1 -I ALL
+
+echo "target $IQN ready:"
+echo "  lun 1  disk           iscsi://127.0.0.1/$IQN/1"
+echo "  lun 2  media changer  iscsi://127.0.0.1/$IQN/2"
+echo "  lun 3  tape           iscsi://127.0.0.1/$IQN/3"
+echo "  lun 4  cd/dvd         iscsi://127.0.0.1/$IQN/4"
+SETUP
+
+# ---------------------------------------------------------------------------
+# Shared reporting helpers, sourced by both verify commands.
+# ---------------------------------------------------------------------------
+RUN cat > /usr/local/lib/pyscsi-report.sh <<'REPORT'
+pass=0
+fail=0
+skip=0
+results=""
+
+run_one() {
+    label="$1"
+    shift
+    echo
+    echo "════════════════════════════════════════════════════════════════════"
+    echo "  $label"
+    echo "  \$ $*"
+    echo "════════════════════════════════════════════════════════════════════"
+    if "$@" 2>&1; then
+        echo "--- PASS: $label"
+        pass=$((pass + 1))
+        results="${results}  PASS  ${label}\n"
+    else
+        rc=$?
+        echo "--- FAIL: $label (exit $rc)"
+        fail=$((fail + 1))
+        results="${results}  FAIL  ${label} (exit ${rc})\n"
+    fi
+}
+
+skip_one() {
+    echo
+    echo "--- SKIP: $1 ($2)"
+    skip=$((skip + 1))
+    results="${results}  SKIP  $1 ($2)\n"
+}
+
+summarise() {
+    echo
+    echo "════════════════════════════════════════════════════════════════════"
+    echo "  summary${1:+ for $1}"
+    echo "════════════════════════════════════════════════════════════════════"
+    printf "%b" "$results"
+    echo "────────────────────────────────────────────────────────────────────"
+    echo "  $pass passed, $fail failed, $skip skipped"
+    echo "════════════════════════════════════════════════════════════════════"
+}
+REPORT
+
+# ---------------------------------------------------------------------------
+# pyscsi-verify-tools /dev/sgN
+#
+# Drive the tools and examples against a real device. Selection is by
+# peripheral device type from INQUIRY -- running the media changer tool against
+# a disk proves nothing -- and by mode page support where a tool needs one.
+# Every command issued is read-only.
+# ---------------------------------------------------------------------------
+RUN cat > /usr/local/bin/pyscsi-verify-tools <<'VTOOLS' && chmod +x /usr/local/bin/pyscsi-verify-tools
+#!/bin/bash
+set -u
+. /usr/local/lib/pyscsi-report.sh
+
+DEVICE="${1:?usage: pyscsi-verify-tools /dev/sgN}"
+cd "${PYSCSI_SRC:-/src}"
+
+DEVTYPE=$(python - "$DEVICE" <<'PY'
+import sys
+from pyscsi.pyscsi.scsi import SCSI
+from pyscsi.utils import init_device
+
+with SCSI(init_device(sys.argv[1])) as s:
+    print(s.inquiry().result["peripheral_device_type"])
+PY
+)
+
+echo "════════════════════════════════════════════════════════════════════"
+echo "  python-scsi tool verification"
+echo "  device      : $DEVICE"
+echo "  device type : $DEVTYPE  (0=disk 1=tape 5=cd/dvd 8=changer)"
+echo "  python      : $(python --version 2>&1)"
+echo "  sgio        : $(python -c 'import sgio; print("available")' 2>&1)"
+echo "════════════════════════════════════════════════════════════════════"
+
+run_one "tools/inquiry.py  standard INQUIRY"   python tools/inquiry.py "$DEVICE"
+run_one "tools/inquiry.py  VPD 0x00 supported" python tools/inquiry.py -p 00 "$DEVICE"
+run_one "tools/inquiry.py  VPD 0x83 device id" python tools/inquiry.py -p 83 "$DEVICE"
+run_one "examples/reportluns.py"               python examples/reportluns.py "$DEVICE"
+
+if [ "$DEVTYPE" = "0" ]; then
+    run_one "tools/inquiry.py  VPD 0xb0 block limits"   python tools/inquiry.py -p b0 "$DEVICE"
+    run_one "tools/inquiry.py  VPD 0xb1 block dev char" python tools/inquiry.py -p b1 "$DEVICE"
+    run_one "tools/inquiry.py  VPD 0xb2 provisioning"   python tools/inquiry.py -p b2 "$DEVICE"
+    run_one "examples/readcapacity10.py"                python examples/readcapacity10.py "$DEVICE"
+    run_one "examples/readcapacity16.py"                python examples/readcapacity16.py "$DEVICE"
+    run_one "examples/read16.py  (read-only)"           python examples/read16.py "$DEVICE"
+
+    # swp.py reads the SWP bit out of the control mode page (0x0A). Ask the
+    # device which pages it has first: a device without 0x0A cannot answer,
+    # which is a capability gap rather than a tool failure.
+    if sg_modes --all "$DEVICE" 2>/dev/null | grep -q ">> Control"; then
+        run_one "tools/swp.py  software write protect" python tools/swp.py "$DEVICE"
+    else
+        skip_one "tools/swp.py" "device does not implement the control mode page 0x0A"
+    fi
+
+    run_one "tools/getlbastatus.py" python tools/getlbastatus.py "$DEVICE"
+else
+    skip_one "block device tools" "device type $DEVTYPE is not a disk"
+fi
+
+if [ "$DEVTYPE" = "5" ]; then
+    run_one "examples/read_disc_information.py" python examples/read_disc_information.py "$DEVICE"
+    run_one "examples/read_cd.py"               python examples/read_cd.py "$DEVICE"
+else
+    skip_one "mmc tools" "device type $DEVTYPE is not cd/dvd"
+fi
+
+if [ "$DEVTYPE" = "8" ]; then
+    run_one "tools/mtx.py status" python tools/mtx.py -f "$DEVICE" status
+else
+    skip_one "tools/mtx.py" "device type $DEVTYPE is not a media changer"
+fi
+
+# An independent implementation of the same commands. If this library and
+# sg3_utils disagree about a device, the disagreement is the finding.
+run_one "sg3_utils sg_inq (reference)"         sg_inq "$DEVICE"
+run_one "sg3_utils sg_readcap (reference)"     sg_readcap "$DEVICE"
+run_one "sg3_utils sg_modes --all (reference)" sg_modes --all "$DEVICE"
+
+summarise "$DEVICE"
+echo
+echo "  A FAIL means the tool did not complete against THIS device, which may"
+echo "  be a library fault or a command the device does not implement. Confirm"
+echo "  with sg3_utils before concluding anything."
+echo "════════════════════════════════════════════════════════════════════"
+
+[ "$fail" -eq 0 ]
+VTOOLS
+
+# ---------------------------------------------------------------------------
+# pyscsi-verify-iscsi
+#
+# Drive the tools over iSCSI against emulated targets, one per device type.
+# This is the only coverage the ssc, mmc and smc tables and the iSCSI transport
+# get -- the unit tests use MockDevice, and a real /dev/sg* is usually a disk.
+# ---------------------------------------------------------------------------
+RUN cat > /usr/local/bin/pyscsi-verify-iscsi <<'VISCSI' && chmod +x /usr/local/bin/pyscsi-verify-iscsi
+#!/bin/bash
+set -u
+. /usr/local/lib/pyscsi-report.sh
+
+IQN="${PYSCSI_IQN:-iqn.2026-01.org.pyscsi:test}"
+PORTAL="${PYSCSI_PORTAL:-127.0.0.1}"
+cd "${PYSCSI_SRC:-/src}"
+
+pyscsi-tgt-setup
+
+echo
+echo "════════════════════════════════════════════════════════════════════"
+echo "  python-scsi verification over iSCSI"
+echo "  portal : $PORTAL"
+echo "  target : $IQN"
+echo "  iscsi  : $(python -c 'import iscsi; print("cython-iscsi available")' 2>&1)"
+echo "════════════════════════════════════════════════════════════════════"
+
+DISK="iscsi://$PORTAL/$IQN/1"
+CHANGER="iscsi://$PORTAL/$IQN/2"
+TAPE="iscsi://$PORTAL/$IQN/3"
+CDROM="iscsi://$PORTAL/$IQN/4"
+
+run_one "device types over iSCSI" python - "$DISK" "$CHANGER" "$TAPE" "$CDROM" <<'PY'
+import sys
+from pyscsi.pyscsi.scsi import SCSI
+from pyscsi.utils import init_device
+
+names = {0: "disk (sbc)", 1: "tape (ssc)", 5: "cd/dvd (mmc)", 8: "changer (smc)"}
+for url in sys.argv[1:]:
+    with SCSI(init_device(url)) as s:
+        r = s.inquiry().result
+        dt = r["peripheral_device_type"]
+        vendor = bytes(r["t10_vendor_identification"]).decode().strip()
+        product = bytes(r["product_identification"]).decode().strip()
+        print(f"  lun {url.rsplit('/', 1)[1]}  type={dt:2d} {names.get(dt, '?'):14s} "
+              f"{vendor} {product}")
+PY
+
+run_one "disk    tools/inquiry.py"           python tools/inquiry.py "$DISK"
+run_one "disk    examples/readcapacity10.py" python examples/readcapacity10.py "$DISK"
+run_one "disk    examples/readcapacity16.py" python examples/readcapacity16.py "$DISK"
+run_one "disk    examples/reportluns.py"     python examples/reportluns.py "$DISK"
+
+run_one "changer tools/inquiry.py"           python tools/inquiry.py "$CHANGER"
+run_one "changer tools/mtx.py status"        python tools/mtx.py -f "$CHANGER" status
+
+run_one "tape    tools/inquiry.py"           python tools/inquiry.py "$TAPE"
+
+run_one "cd      tools/inquiry.py"           python tools/inquiry.py "$CDROM"
+run_one "cd      examples/read_disc_information.py" \
+    python examples/read_disc_information.py "$CDROM"
+
+run_one "reference iscsi-ls" iscsi-ls -s "iscsi://$PORTAL"
+
+summarise
+[ "$fail" -eq 0 ]
+VISCSI
+
+WORKDIR /src
+
+CMD ["pytest", "-vv"]
+
+# Last on purpose: labels carry no filesystem content but do invalidate every
+# layer below them, and image.source is what links the package to the
+# repository on ghcr.
+LABEL org.opencontainers.image.title="python-scsi dev environment" \
+      org.opencontainers.image.description="Python, both SCSI transports, sg3_utils and tgt" \
+      org.opencontainers.image.source="https://github.com/python-scsi/python-scsi" \
+      org.opencontainers.image.licenses="MIT"

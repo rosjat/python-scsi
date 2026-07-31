@@ -1,0 +1,102 @@
+# SPDX-FileCopyrightText: 2026 The python-scsi Authors
+#
+# SPDX-License-Identifier: MIT
+
+name: container
+
+on:
+  push:
+    branches: ['**']
+    # The image does not depend on the sources -- the repository is mounted at
+    # run time -- so only rebuild when the image itself changes.
+    paths:
+      - 'containers/Containerfile'
+      - '.github/workflows/container.yml'
+  pull_request:
+    paths:
+      - 'containers/Containerfile'
+      - '.github/workflows/container.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the built-in GITHUB_TOKEN push to ghcr; no PAT is needed.
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # ghcr rejects an uppercase path, and github.repository_owner preserves
+      # whatever case the account uses.
+      - name: Resolve the image name
+        id: image
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "ref=ghcr.io/${owner}/python-scsi-dev" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        # Skipped for pull requests: a fork's token is read-only, and a PR must
+        # not be able to publish. The build below still runs, so the
+        # Containerfile is verified either way.
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: containers
+          file: containers/Containerfile
+          build-args: PYTHON_VERSION=${{ env.PYTHON_VERSION }}
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          # Also export to the local daemon so the smoke test below can run it,
+          # including on pull requests where nothing is pushed.
+          load: true
+          tags: |
+            ${{ steps.image.outputs.ref }}:latest
+            ${{ steps.image.outputs.ref }}:${{ env.PYTHON_VERSION }}
+            ${{ steps.image.outputs.ref }}:${{ github.sha }}
+          # Without this every run reinstalls apt and recompiles both Cython
+          # extensions. With it, an unchanged build is close to instant.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the image
+        # Runs the locally loaded image, so this gates pull requests too. The
+        # tgt-setup check needs no repository mounted, which is what proves the
+        # harness is genuinely self-contained.
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}:latest
+        run: |
+          set -eu
+          echo "--- both transports import ---"
+          docker run --rm "$IMAGE" \
+            python -c "import sgio, iscsi; print('sgio + iscsi OK')"
+
+          echo "--- harness commands are on PATH ---"
+          docker run --rm "$IMAGE" \
+            bash -c 'command -v pyscsi-tgt-setup pyscsi-verify-tools pyscsi-verify-iscsi'
+
+          echo "--- emulated targets come up with no repository mounted ---"
+          docker run --rm "$IMAGE" pyscsi-tgt-setup
+
+          echo "--- the repository's own tests pass in the image ---"
+          docker run --rm -v "$PWD:/src" -w /src "$IMAGE" pytest -q
