@@ -6,6 +6,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 from pyscsi.pyscsi.scsi_command import SCSICommand
+from pyscsi.pyscsi.scsi_transport_id import (
+    marshall_transport_id,
+    unmarshall_transport_id,
+)
 from pyscsi.utils.converter import (
     decode_bits,
     encode_dict,
@@ -63,19 +67,17 @@ class ReportPriority(SCSICommand):
         """
         result = {}
         #  get the data after the ppd_len
-        _data = data[4 : scsi_ba_to_int(data[:4])]
+        _data = data[4 : 4 + scsi_ba_to_int(data[:4])]
         _descriptors = []
         while len(_data):
             _r = {}
-            _dict = dict(cls._datain_bits.copy)
-            _dict.update(
-                {
-                    "transport_id": [hex(scsi_ba_to_int(_data[6:7])), 8],
-                }
-            )
-            decode_bits(_data[: 8 + scsi_ba_to_int(_data[6:7])], _dict, _r)
+            # ADDITIONAL DESCRIPTOR LENGTH is a two-byte field at bytes 6-7 and
+            # gives the size of the TransportID that follows it.
+            _adlen = scsi_ba_to_int(_data[6:8])
+            decode_bits(_data[: 8 + _adlen], cls._data_bits, _r)
+            _r["transport_id"] = unmarshall_transport_id(_data[8 : 8 + _adlen])
             _descriptors.append(_r)
-            _data = _data[scsi_ba_to_int(_r["adlen"]) + 8 :]
+            _data = _data[8 + _adlen :]
         result.update(
             {
                 "priority_descriptors": _descriptors,
@@ -93,19 +95,18 @@ class ReportPriority(SCSICommand):
         """
         result = bytearray(4)
         if "priority_descriptors" not in data:
-            result[:4] = scsi_int_to_ba(len(result), 4)
+            result[:4] = scsi_int_to_ba(len(result) - 4, 4)
             return result
 
         for l in data["priority_descriptors"]:
-            _r = bytearray(len(l))
-            _dict = dict(cls._datain_bits.copy)
-            _dict.update(
-                {
-                    "transport_id": [hex(scsi_ba_to_int(len(l) - 8)), 8],
-                }
-            )
-            encode_dict(l, _dict, _r)
+            _tid = marshall_transport_id(l["transport_id"])
+            _r = bytearray(8 + len(_tid))
+            encode_dict(l, cls._data_bits, _r)
+            # ADDITIONAL DESCRIPTOR LENGTH is the size of the TransportID, so
+            # it follows from the marshalled bytes rather than the input dict.
+            _r[6:8] = scsi_int_to_ba(len(_tid), 2)
+            _r[8:] = _tid
             result += _r
 
-        result[:4] = scsi_int_to_ba(len(result), 4)
+        result[:4] = scsi_int_to_ba(len(result) - 4, 4)
         return result
