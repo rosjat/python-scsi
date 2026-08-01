@@ -146,7 +146,9 @@ class ReportTargetPortGroups(SCSICommand):
             _r = bytearray(8)
             encode_dict(_tpgd, cls._tpgd_bits, _r)
             result += _r
-            for _tpd in _tpgd["relative_target_port_id"]:
+            # Table 167: a four-byte target port descriptor carrying the
+            # RELATIVE TARGET PORT IDENTIFIER in its last two bytes.
+            for _tpd in _tpgd["target_ports"]:
                 result += bytearray(2)
                 result += scsi_int_to_ba(_tpd["relative_target_port_id"], 2)
 
