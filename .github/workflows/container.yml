@@ -15,6 +15,7 @@ on:
       - 'containers/Containerfile'
       - '.github/workflows/container.yml'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -37,7 +38,16 @@ jobs:
         id: image
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          echo "ref=ghcr.io/${owner}/python-scsi-dev" >> "$GITHUB_OUTPUT"
+          ref="ghcr.io/${owner}/python-scsi-dev"
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'tags<<TAGS'
+            echo "${ref}:latest"
+            case "$GITHUB_REF" in
+              refs/tags/*) echo "${ref}:${GITHUB_REF#refs/tags/}" ;;
+            esac
+            echo TAGS
+          } >> "$GITHUB_OUTPUT"
 
       # `master` would cache on that literal string and keep whatever was built
       # first; a SHA changes when upstream does, so the layer rebuilds.
@@ -74,7 +84,7 @@ jobs:
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           load: true
-          tags: ${{ steps.image.outputs.ref }}:latest
+          tags: ${{ steps.image.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

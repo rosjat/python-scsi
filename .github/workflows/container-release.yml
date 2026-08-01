@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 The python-scsi Authors
+#
+# SPDX-License-Identifier: MIT
+
+name: container-release
+
+# Separate from container.yml because path filters are not applied to tag
+# pushes, so a `tags` filter beside its `paths` filter would never build.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  container:
+    uses: ./.github/workflows/container.yml
+    permissions:
+      contents: read
+      packages: write
