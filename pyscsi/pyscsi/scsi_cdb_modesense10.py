@@ -182,7 +182,6 @@ class ModeSelect10(SCSICommand):
         SCSICommand.__init__(self, opcode, len(_d), 0)
         self.dataout = _d
         self.cdb = self.build_cdb(
-            10,
             opcode=self.opcode.value,
             pf=pf,
             sp=sp,
