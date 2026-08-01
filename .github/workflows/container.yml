@@ -7,8 +7,6 @@ name: container
 on:
   push:
     branches: ['**']
-    # The image does not depend on the sources -- the repository is mounted at
-    # run time -- so only rebuild when the image itself changes.
     paths:
       - 'containers/Containerfile'
       - '.github/workflows/container.yml'
@@ -16,11 +14,6 @@ on:
     paths:
       - 'containers/Containerfile'
       - '.github/workflows/container.yml'
-  # The transports are built from the tip of their repositories, so a new
-  # cython-sgio or cython-iscsi commit is otherwise picked up only when the
-  # Containerfile itself changes. Both move rarely enough that running this by
-  # hand when they do beats rebuilding on a schedule that would almost always
-  # find nothing.
   workflow_dispatch:
 
 permissions:
@@ -35,24 +28,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Lets the built-in GITHUB_TOKEN push to ghcr; no PAT is needed.
       packages: write
     steps:
       - uses: actions/checkout@v7
 
-      # ghcr rejects an uppercase path, and github.repository_owner preserves
-      # whatever case the account uses.
+      # ghcr rejects an uppercase path.
       - name: Resolve the image name
         id: image
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "ref=ghcr.io/${owner}/python-scsi-dev" >> "$GITHUB_OUTPUT"
 
-      # Pin both transports to the commit that is current now. Passing `master`
-      # would cache on that literal string, so the layer would be reused and the
-      # image would keep whatever was built the first time. A SHA changes when
-      # upstream does, which both busts the cache and records exactly what went
-      # into the image.
+      # `master` would cache on that literal string and keep whatever was built
+      # first; a SHA changes when upstream does, so the layer rebuilds.
       - name: Resolve the transport revisions
         id: transports
         run: |
@@ -68,9 +56,6 @@ jobs:
       - uses: docker/setup-buildx-action@v4
 
       - name: Log in to ghcr.io
-        # Skipped for pull requests: a fork's token is read-only, and a PR must
-        # not be able to publish. The build below still runs, so the
-        # Containerfile is verified either way.
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
@@ -88,21 +73,12 @@ jobs:
             ISCSI_REF=${{ steps.transports.outputs.cython_iscsi }}
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
-          # Also export to the local daemon so the smoke test below can run it,
-          # including on pull requests where nothing is pushed.
           load: true
-          tags: |
-            ${{ steps.image.outputs.ref }}:latest
-            ${{ steps.image.outputs.ref }}:${{ github.sha }}
-          # Without this every run reinstalls apt and recompiles both Cython
-          # extensions. With it, an unchanged build is close to instant.
+          tags: ${{ steps.image.outputs.ref }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Smoke test the image
-        # Runs the locally loaded image, so this gates pull requests too. The
-        # tgt-setup check needs no repository mounted, which is what proves the
-        # harness is genuinely self-contained.
         env:
           IMAGE: ${{ steps.image.outputs.ref }}:latest
         run: |
@@ -127,3 +103,23 @@ jobs:
 
           echo "--- the repository's own tests pass in the image ---"
           docker run --rm -v "$PWD:/src" -w /src "$IMAGE" pytest -q
+
+      # Two passes: delete-only-untagged-versions makes the action disregard
+      # ignore-versions.
+      - name: Delete untagged images
+        if: github.event_name != 'pull_request'
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: python-scsi-dev
+          package-type: container
+          delete-only-untagged-versions: true
+          min-versions-to-keep: 0
+
+      - name: Delete superseded images
+        if: github.event_name != 'pull_request'
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: python-scsi-dev
+          package-type: container
+          min-versions-to-keep: 3
+          ignore-versions: '^(latest|v?[0-9]+\.[0-9]+\.[0-9]+)$'
