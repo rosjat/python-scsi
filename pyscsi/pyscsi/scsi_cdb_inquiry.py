@@ -184,7 +184,7 @@ class Inquiry(SCSICommand):
 
     _ata_information_bits = {
         "sat_vendor_identification": ("b", 8, 8),
-        "sat_product_identification": ("b", 16, 20),
+        "sat_product_identification": ("b", 16, 16),
         "sat_product_rev_lvl": ("b", 32, 4),
     }
 
@@ -306,7 +306,7 @@ class Inquiry(SCSICommand):
             return data["md5_logical_identifier"]
 
         if _type == cls.DESIGNATOR.SCSI_NAME_STRING:
-            return ["scsi_name_string"]
+            return data["scsi_name_string"]
 
         if _type == cls.DESIGNATOR.PCI_EXPRESS_ROUTING_ID:
             _r = bytearray(8)
