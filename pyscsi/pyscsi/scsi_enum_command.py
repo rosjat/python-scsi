@@ -6,8 +6,8 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from pyscsi.pyscsi.scsi_opcode import OpCode
-from pyscsi.utils.enum import Enum
+from pyscsi.pyscsi.scsi_opcode import OpCode, OpcodeTable
+from pyscsi.utils.table import ValueTable
 
 # Dictionaries to define service actions and there values
 #
@@ -462,17 +462,17 @@ action_codes = {""}
 
 """
 ------------------------------------------------------------------------------
-Instantiate the Enum Objects
+Instantiate the tables
 ------------------------------------------------------------------------------
 """
 
-SCSI_STATUS = Enum(scsi_status)
+SCSI_STATUS = ValueTable(scsi_status)
 
-spc = Enum(spc_opcodes)
-sbc = Enum(sbc_opcodes)
-ssc = Enum(ssc_opcodes)
-smc = Enum(smc_opcodes)
-mmc = Enum(mmc_opcodes)
+spc = OpcodeTable(spc_opcodes)
+sbc = OpcodeTable(sbc_opcodes)
+ssc = OpcodeTable(ssc_opcodes)
+smc = OpcodeTable(smc_opcodes)
+mmc = OpcodeTable(mmc_opcodes)
 
 """
 ------------------------------------------------------------------------------
@@ -501,14 +501,14 @@ opcodes = {
     "WRITE_SAME_16": 0x93,
 }
 
-OPCODE = Enum(opcodes)
+OPCODE = ValueTable(opcodes)
 
 service_action_ins = {
     "READ_CAPACITY_16": 0x10,
     "GET_LBA_STATUS": 0x12,
 }
 
-SERVICE_ACTION_IN = Enum(service_action_ins)
+SERVICE_ACTION_IN = ValueTable(service_action_ins)
 
 """
 ------------------------------------------------------------------------------

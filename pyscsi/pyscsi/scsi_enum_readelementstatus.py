@@ -9,7 +9,7 @@ __all__ = [
     "ELEMENT_TYPE",
 ]
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import ValueTable
 
 #
 # Element Type Code
@@ -22,4 +22,4 @@ _element_type = {
     "DATA_TRANSFER": 0x04,
 }
 
-ELEMENT_TYPE = Enum(_element_type)
+ELEMENT_TYPE = ValueTable(_element_type)

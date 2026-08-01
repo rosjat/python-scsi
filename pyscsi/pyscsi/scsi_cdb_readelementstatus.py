@@ -5,6 +5,8 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import ClassVar
+
 import pyscsi.pyscsi.scsi_enum_readelementstatus as readelementstatus_enums
 from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.utils.converter import (
@@ -13,17 +15,11 @@ from pyscsi.utils.converter import (
     scsi_ba_to_int,
     scsi_int_to_ba,
 )
+from pyscsi.utils.table import ValueTable
 
 #
 # SCSI ReadElementStatus command and definitions
 #
-
-# we get a generator for all inquiry enums, so we can add them to the class
-_enums = (
-    (key, readelementstatus_enums.__dict__[key])
-    for key in readelementstatus_enums.__dict__.keys()
-    if key in readelementstatus_enums.__all__
-)
 
 
 class ReadElementStatus(SCSICommand):
@@ -83,10 +79,7 @@ class ReadElementStatus(SCSICommand):
         "impexp": [0x02, 2],
     }
 
-    # HACK: we update the baseclass with enums for the subclass, if there is a better way
-    #       to add this to the subclass we should use it instead :-)
-    for enum in _enums:
-        setattr(SCSICommand, enum[0], enum[1])
+    ELEMENT_TYPE: ClassVar[ValueTable] = readelementstatus_enums.ELEMENT_TYPE
 
     def __init__(
         self,

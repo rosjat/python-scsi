@@ -5,20 +5,16 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import ClassVar
+
 import pyscsi.pyscsi.scsi_enum_inquiry as inquiry_enums
 import pyscsi.utils.converter as convert
 from pyscsi.pyscsi.scsi_command import SCSICommand
+from pyscsi.utils.table import ValueTable
 
 #
 # SCSI Inquiry command and definitions
 #
-
-# we get a generator for all inquiry enums, so we can add them to the class
-_enums = (
-    (key, inquiry_enums.__dict__[key])
-    for key in inquiry_enums.__dict__.keys()
-    if key in inquiry_enums.__all__
-)
 
 
 class Inquiry(SCSICommand):
@@ -213,10 +209,18 @@ class Inquiry(SCSICommand):
         "respose_incomplete": [0x02, 0],
     }
 
-    # HACK: we update the baseclass with enums for the subclass, if there is a better way
-    #       to add this to the subclass we should use it instead :-)
-    for enum in _enums:
-        setattr(SCSICommand, enum[0], enum[1])
+    ASSOCIATION: ClassVar[ValueTable] = inquiry_enums.ASSOCIATION
+    CODE_SET: ClassVar[ValueTable] = inquiry_enums.CODE_SET
+    DESIGNATOR: ClassVar[ValueTable] = inquiry_enums.DESIGNATOR
+    DEVICE_TYPE: ClassVar[ValueTable] = inquiry_enums.DEVICE_TYPE
+    NAA: ClassVar[ValueTable] = inquiry_enums.NAA
+    NOMINAL_FORM_FACTOR: ClassVar[ValueTable] = inquiry_enums.NOMINAL_FORM_FACTOR
+    PROTOCOL_IDENTIFIER: ClassVar[ValueTable] = inquiry_enums.PROTOCOL_IDENTIFIER
+    PROVISIONING_TYPE: ClassVar[ValueTable] = inquiry_enums.PROVISIONING_TYPE
+    QUALIFIER: ClassVar[ValueTable] = inquiry_enums.QUALIFIER
+    TPGS: ClassVar[ValueTable] = inquiry_enums.TPGS
+    VERSION: ClassVar[ValueTable] = inquiry_enums.VERSION
+    VPD: ClassVar[ValueTable] = inquiry_enums.VPD
 
     def __init__(self, opcode, evpd=0, page_code=0, alloclen=96):
         """

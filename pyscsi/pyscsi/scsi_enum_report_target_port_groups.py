@@ -5,7 +5,7 @@
 # coding: utf-8
 
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import ValueTable
 
 #
 # PARAMETER DATA FORMAT TYPE
@@ -15,4 +15,4 @@ _data_format_type = {
     "EXTENDED_HEADER_PARAMETER_DATA_FORMAT": 1,
 }
 
-DATA_FORMAT_TYPE = Enum(_data_format_type)
+DATA_FORMAT_TYPE = ValueTable(_data_format_type)

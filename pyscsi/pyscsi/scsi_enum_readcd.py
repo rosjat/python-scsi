@@ -5,7 +5,7 @@
 # coding: utf-8
 
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import ValueTable
 
 #
 # EXPECTED_SECTOR_TYPE
@@ -18,4 +18,4 @@ _expected_sector_type = {
     "MODE_2_FORM_2": 5,
 }
 
-EXPECTED_SECTOR_TYPE = Enum(_expected_sector_type)
+EXPECTED_SECTOR_TYPE = ValueTable(_expected_sector_type)

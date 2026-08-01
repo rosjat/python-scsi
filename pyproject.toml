@@ -111,12 +111,3 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["setuptools", "setuptools_scm"]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-# The custom Enum in pyscsi/utils/enum.py is a metaclass: Enum(some_dict)
-# returns a dynamically built class, so mypy cannot know its members and
-# reports attr-defined on every access. Replacing that metaclass with typed
-# container classes makes ELEMENT_TYPE.STORAGE resolve to int; drop this
-# override once that lands.
-module = ["tests.test_unmarshall_readelementstatus"]
-disable_error_code = ["attr-defined"]

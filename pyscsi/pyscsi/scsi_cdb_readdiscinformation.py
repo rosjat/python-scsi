@@ -5,20 +5,16 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import ClassVar
+
 import pyscsi.pyscsi.scsi_enum_readdiscinformation as rdi_enums
 from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.utils.converter import decode_bits, encode_dict
+from pyscsi.utils.table import ValueTable
 
 #
 # SCSI ReadDiscInformation command and definitions
 #
-
-# we get a generator for all readdiskinformation enums, so we can add them to the class
-_enums = (
-    (key, rdi_enums.__dict__[key])
-    for key in rdi_enums.__dict__.keys()
-    if key in rdi_enums.__all__ and key not in ["MODESENSE6"]
-)
 
 
 class ReadDiscInformation(SCSICommand):
@@ -32,8 +28,12 @@ class ReadDiscInformation(SCSICommand):
         "alloc_len": [0xFFFF, 7],
     }
 
-    for enum in _enums:
-        setattr(SCSICommand, enum[0], enum[1])
+    DISC_INFORMATION_DATA_TYPE: ClassVar[ValueTable] = (
+        rdi_enums.DISC_INFORMATION_DATA_TYPE
+    )
+    DISC_STATUS: ClassVar[ValueTable] = rdi_enums.DISC_STATUS
+    DISC_TYPE: ClassVar[ValueTable] = rdi_enums.DISC_TYPE
+    STATE_OF_LAST_SESSION: ClassVar[ValueTable] = rdi_enums.STATE_OF_LAST_SESSION
 
     _sdi_bits = {
         "disc_information_length": [0xFFFF, 0],

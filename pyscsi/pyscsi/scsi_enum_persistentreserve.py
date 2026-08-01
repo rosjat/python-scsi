@@ -6,7 +6,7 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import ValueTable
 
 __all__ = ["PR_TYPE", "PR_SCOPE", "PROTOCOL_ID"]
 
@@ -48,6 +48,6 @@ protocol_id = {
 # Instantiate the Enum Objects
 # ------------------------------------------------------------------------------
 
-PR_TYPE = Enum(pr_type)
-PR_SCOPE = Enum(pr_scope)
-PROTOCOL_ID = Enum(protocol_id)
+PR_TYPE = ValueTable(pr_type)
+PR_SCOPE = ValueTable(pr_scope)
+PROTOCOL_ID = ValueTable(protocol_id)

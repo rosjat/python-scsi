@@ -167,15 +167,18 @@ def print_data(data_dict):
                 print("%s -> 0x%02X" % (k, v))
 
 
-def get_opcode(enum, part):
+def get_opcode(table, part):
     """
-    A generator that returns an OpCode object from a given
-    Enum object.
+    A generator that yields OpCode objects from a given opcode table.
 
-    :param enum: the Enum of opcodes
-    :param part: a string to lookup in the enum keys
+    Used for opcodes multiplexed over service actions, which live under
+    synthetic keys such as SBC_OPCODE_9E and are matched on the last two
+    characters of the key.
+
+    :param table: the OpcodeTable to search
+    :param part: a string to look up in the table keys
     :return: an OpCode object
     """
-    for val in enum.keys:
-        if val[len(val) - 2 :] == part:
-            yield getattr(enum, val)
+    for name, opcode in table.items():
+        if name[len(name) - 2 :] == part:
+            yield opcode

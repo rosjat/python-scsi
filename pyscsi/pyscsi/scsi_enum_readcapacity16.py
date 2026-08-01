@@ -5,7 +5,7 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import ValueTable
 
 #
 # P_TYPE
@@ -16,4 +16,4 @@ _p_types = {
     "TYPE_3_PROTECTION": 0x02,
 }
 
-P_TYPE = Enum(_p_types)
+P_TYPE = ValueTable(_p_types)

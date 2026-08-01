@@ -5,7 +5,7 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import ValueTable
 
 __all__ = [
     "DISC_INFORMATION_DATA_TYPE",
@@ -39,7 +39,7 @@ disc_type = {
     "CD-ROM XA": 0x20,
     "UNDEFINED": 0xFF,
 }
-DISC_INFORMATION_DATA_TYPE = Enum(disc_information_data_type)
-STATE_OF_LAST_SESSION = Enum(state_of_last_session)
-DISC_STATUS = Enum(disc_status)
-DISC_TYPE = Enum(disc_type)
+DISC_INFORMATION_DATA_TYPE = ValueTable(disc_information_data_type)
+STATE_OF_LAST_SESSION = ValueTable(state_of_last_session)
+DISC_STATUS = ValueTable(disc_status)
+DISC_TYPE = ValueTable(disc_type)

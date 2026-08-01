@@ -5,20 +5,16 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import ClassVar
+
 import pyscsi.pyscsi.scsi_enum_modesense as modesense_enums
 from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.utils.converter import decode_bits, encode_dict, scsi_int_to_ba
+from pyscsi.utils.table import BitsTable, ValueTable
 
 #
 # SCSI ModeSense6 command and definitions
 #
-
-# we get a generator for all modeselect10 enums, so we can add them to the class
-_enums = (
-    (key, modesense_enums.__dict__[key])
-    for key in modesense_enums.__dict__.keys()
-    if key in modesense_enums.__all__ and key not in ["MODESENSE10"]
-)
 
 
 class ModeSense6(SCSICommand):
@@ -35,8 +31,9 @@ class ModeSense6(SCSICommand):
         "alloc_len": [0xFF, 4],
     }
 
-    for enum in _enums:
-        setattr(SCSICommand, enum[0], enum[1])
+    PC: ClassVar[ValueTable] = modesense_enums.PC
+    PAGE_CODE: ClassVar[ValueTable] = modesense_enums.PAGE_CODE
+    MODESENSE6: ClassVar[BitsTable] = modesense_enums.MODESENSE6
 
     def __init__(self, opcode, page_code, sub_page_code=0, dbd=0, pc=0, alloclen=96):
         """

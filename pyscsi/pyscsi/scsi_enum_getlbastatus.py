@@ -5,7 +5,7 @@
 # coding: utf-8
 
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import ValueTable
 
 #
 # P_STATUS
@@ -16,4 +16,4 @@ _p_status = {
     "ANCHORED": 0x02,
 }
 
-P_STATUS = Enum(_p_status)
+P_STATUS = ValueTable(_p_status)

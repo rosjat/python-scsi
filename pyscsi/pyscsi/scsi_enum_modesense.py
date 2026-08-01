@@ -6,7 +6,7 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import BitsTable, ValueTable
 
 # we using Enum to utilize the mode page dict so we can use them in a more
 # descriptive way. The ne enum has basically a dictionary as enum value. So we
@@ -230,10 +230,10 @@ page_code = {
 }
 
 # ------------------------------------------------------------------------------
-# Instantiate the Enum Objects
+# Instantiate the tables
 # ------------------------------------------------------------------------------
 
-PC = Enum(pc)
-PAGE_CODE = Enum(page_code)
-MODESENSE6 = Enum(modepage6bits)
-MODESENSE10 = Enum(modepage10bits)
+PC = ValueTable(pc)
+PAGE_CODE = ValueTable(page_code)
+MODESENSE6 = BitsTable(modepage6bits)
+MODESENSE10 = BitsTable(modepage10bits)

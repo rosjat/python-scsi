@@ -5,7 +5,7 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from pyscsi.utils.enum import Enum
+from pyscsi.utils.table import ValueTable
 
 __all__ = [
     "PROVISIONING_TYPE",
@@ -30,7 +30,7 @@ _provisioning_type = {
     "THIN_PROVISIONED": 0x02,
 }
 
-PROVISIONING_TYPE = Enum(_provisioning_type)
+PROVISIONING_TYPE = ValueTable(_provisioning_type)
 
 #
 # Device qualifier
@@ -41,7 +41,7 @@ _qualifiers = {
     "NOT_CAPABLE": 0x03,
 }
 
-QUALIFIER = Enum(_qualifiers)
+QUALIFIER = ValueTable(_qualifiers)
 
 #
 # Device type
@@ -69,7 +69,7 @@ _device_types = {
     "UNKNOWN_DEVICE": 0x1F,
 }
 
-DEVICE_TYPE = Enum(_device_types)
+DEVICE_TYPE = ValueTable(_device_types)
 
 #
 # Version
@@ -82,7 +82,7 @@ _versions = {
     "SPC_4": 0x06,
 }
 
-VERSION = Enum(_versions)
+VERSION = ValueTable(_versions)
 
 #
 # TargetPortalGroupSupport
@@ -94,7 +94,7 @@ _tpgss = {
     "BOTH_IMPLICIT_AND_EXPLICIT_ASSYMETRIC_LUN_ACCESS": 0x03,
 }
 
-TPGS = Enum(_tpgss)
+TPGS = ValueTable(_tpgss)
 
 #
 # Nominal Form Factor
@@ -108,7 +108,7 @@ _nff = {
     "Less than 1.8": 0x05,
 }
 
-NOMINAL_FORM_FACTOR = Enum(_nff)
+NOMINAL_FORM_FACTOR = ValueTable(_nff)
 
 _protocol_identifier = {
     "FIBRE_CHANNEL": 0x00,
@@ -125,7 +125,7 @@ _protocol_identifier = {
     "NO_SPECIFIC_PROTOCOL": 0x0F,
 }
 
-PROTOCOL_IDENTIFIER = Enum(_protocol_identifier)
+PROTOCOL_IDENTIFIER = ValueTable(_protocol_identifier)
 
 _code_set = {
     "BINARY": 0x01,
@@ -133,7 +133,7 @@ _code_set = {
     "UTF8": 0x03,
 }
 
-CODE_SET = Enum(_code_set)
+CODE_SET = ValueTable(_code_set)
 
 _association = {
     "ASSOCIATED_WITH_LUN": 0x00,
@@ -141,7 +141,7 @@ _association = {
     "ASSOCIATED_WITH_TARGET_DEVICE": 0x02,
 }
 
-ASSOCIATION = Enum(_association)
+ASSOCIATION = ValueTable(_association)
 
 _designator = {
     "VENDOR_SPECIFIC": 0x00,
@@ -156,7 +156,7 @@ _designator = {
     "PCI_EXPRESS_ROUTING_ID": 0x09,
 }
 
-DESIGNATOR = Enum(_designator)
+DESIGNATOR = ValueTable(_designator)
 
 _naa = {
     "IEEE_EXTENDED": 0x02,
@@ -165,7 +165,7 @@ _naa = {
     "IEEE_REGISTERED_EXTENDED": 0x06,
 }
 
-NAA = Enum(_naa)
+NAA = ValueTable(_naa)
 
 #
 # VPD pages
@@ -199,4 +199,4 @@ _vpds = {
     "BLOCK_DEVICE_CHARACTERISTICS_EXTENSION": 0xB5,
 }
 
-VPD = Enum(_vpds)
+VPD = ValueTable(_vpds)

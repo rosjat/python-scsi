@@ -5,7 +5,7 @@
 import socket
 
 from .converter import *
-from .enum import *
+from .table import *
 
 
 def init_device(
