@@ -56,7 +56,8 @@ class ReportLuns(SCSICommand):
         :return result: a dic
         """
         result = {}
-        _data = data[8 : scsi_ba_to_int(data[:4]) + 4]
+        # LUN LIST LENGTH counts the list alone; the header is 8 bytes.
+        _data = data[8 : scsi_ba_to_int(data[:4]) + 8]
         _luns = []
         _count = 0
         while len(_data):
@@ -82,7 +83,7 @@ class ReportLuns(SCSICommand):
         """
         result = bytearray(8)
         if "luns" not in data:
-            result[:4] = scsi_int_to_ba(len(result) - 4, 4)
+            result[:4] = scsi_int_to_ba(len(result) - 8, 4)
             return result
 
         for l in data["luns"]:
@@ -90,5 +91,5 @@ class ReportLuns(SCSICommand):
             encode_dict(l, cls._datain_bits, _r)
 
             result += _r
-        result[:4] = scsi_int_to_ba(len(result) - 4, 4)
+        result[:4] = scsi_int_to_ba(len(result) - 8, 4)
         return result
