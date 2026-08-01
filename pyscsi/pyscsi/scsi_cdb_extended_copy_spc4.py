@@ -473,7 +473,7 @@ class ExtendedCopy(SCSICommand):
         )
         provided_keys = set(target_dict.keys())
         if not provided_keys.issubset(valid_keys):
-            for key in provided_keys:
+            for key in sorted(provided_keys - valid_keys):
                 raise ValueError(
                     "Invalid key supplied: %s (should be one of %s)" % (key, valid_keys)
                 )
@@ -709,7 +709,7 @@ class ExtendedCopy(SCSICommand):
         valid_keys = set(check_dict.keys())
         provided_keys = set(data_dict.keys())
         if not provided_keys.issubset(valid_keys):
-            for key in provided_keys:
+            for key in sorted(provided_keys - valid_keys):
                 raise ValueError(
                     "Invalid key supplied: %s (should be one of %s)" % (key, valid_keys)
                 )
