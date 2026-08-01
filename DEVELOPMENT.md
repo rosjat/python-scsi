@@ -27,66 +27,213 @@ which will set up the hooks for the current repository.
 
 ## Unit Testing
 
-The tests directory contain unit tests for python-scsi.
-
-To run the tests:
+The tests directory contains unit tests for python-scsi. They use a mock
+device and need no hardware:
 
     python-scsi $ pip install -e .[dev]
-    python-scsi $ pytest --mypy
+    python-scsi $ pytest
 
-or use the make file:
+Run them from the repository root — the tests import `tests.mock_device`.
 
-    $ cd tests
-    $ make
+Type checking is a separate step:
+
+    python-scsi $ mypy
+
+`python_version` in `pyproject.toml` pins the analysis target to 3.11, so a
+bare `mypy` checks the floor whatever interpreter you run it under. Pass
+`--python-version` to check another:
+
+    python-scsi $ mypy --python-version 3.14
+
+## Development container
+
+Everything above can be run in a container instead — the only route on a host
+without Python. The image adds both SCSI transports, `sg3_utils`, `tgt` and the
+verification harness, and mounts the repository at `/src`.
+
+`podman` and `docker` are interchangeable in every command below.
+
+### Getting the image
+
+CI publishes it, so pulling is usually enough:
+
+    podman pull ghcr.io/python-scsi/python-scsi-dev:latest
+
+A release tag publishes a matching `:vX.Y.Z`. The commands below say
+`python-scsi-dev`; use the full `ghcr.io/...` reference, or retag it locally.
+
+To build it instead:
+
+    podman build -f containers/Containerfile -t python-scsi-dev containers/
+
+### Choosing a runtime
+
+One image carries 3.11 through 3.14, each in its own virtualenv under
+`/opt/venv/<version>`. Select one by path:
+
+    podman run --rm -v "$PWD:/src:z" python-scsi-dev /opt/venv/3.13/bin/pytest
+
+The harness commands read `PYSCSI_PYTHON` instead:
+
+    podman run --rm -v "$PWD:/src:z" -e PYSCSI_PYTHON=3.13 \
+        python-scsi-dev pyscsi-verify-iscsi
+
+A bare `pytest`, `python` or `mypy` uses 3.11. `mypy`, `pre-commit` and `build`
+are installed there only, so check another version from that virtualenv rather
+than installing mypy again — `--python-version` sets the analysis target and
+`--python-executable` resolves that runtime's packages:
+
+    podman run --rm -v "$PWD:/src:z" python-scsi-dev \
+        mypy --python-version 3.14 --python-executable /opt/venv/3.14/bin/python
+
+Omitting `--python-version` re-checks 3.11 without saying so.
+
+### The transports
+
+`cython-sgio` and `cython-iscsi` are built from `master` of their repositories,
+not installed from PyPI. Pin them with build arguments:
+
+    podman build -f containers/Containerfile \
+        --build-arg SGIO_REF=<sha> --build-arg ISCSI_REF=<sha> \
+        -t python-scsi-dev containers/
+
+`master` caches on the literal string, so pass a SHA or `--no-cache` to pick up
+new commits.
+
+### The whole matrix at once
+
+`pyscsi-matrix` runs the suite on every runtime in turn and prints a summary.
+Arguments are passed through to pytest.
+
+    podman run --rm -v "$PWD:/src:z" python-scsi-dev pyscsi-matrix -q
+    podman run --rm -v "$PWD:/src:z" python-scsi-dev pyscsi-matrix -k inquiry
+
+### Everyday commands
+
+Each mounts the repository at `/src`:
+
+| Task | Command |
+|---|---|
+| tests | `podman run --rm -v "$PWD:/src:z" python-scsi-dev pytest -vv` |
+| one test | `podman run --rm -v "$PWD:/src:z" python-scsi-dev pytest -k inquiry` |
+| type check | `podman run --rm -v "$PWD:/src:z" python-scsi-dev mypy` |
+| lint | `podman run --rm -v "$PWD:/src:z" python-scsi-dev pre-commit run --all-files` |
+| shell | `podman run --rm -it -v "$PWD:/src:z" python-scsi-dev bash` |
+| build sdist+wheel | `podman run --rm -v "$PWD:/src:z" python-scsi-dev python -m build` |
+
+On Windows `$PWD` becomes the drive-lettered path with forward slashes, for
+example `-v "D:/Projekte/python-scsi:/src:z"`. The `:z` suffix is an SELinux
+relabel, harmless where SELinux is not in use.
+
+Nothing in the container writes to the mount, except `python -m build`:
+setuptools drops `build/` and `*.egg-info/` next to the sources whatever
+`--outdir` says. To keep the tree clean:
+
+    podman run --rm -v "$PWD:/src:z" python-scsi-dev bash -c \
+        'python -m build --outdir /tmp/dist /src && cp /tmp/dist/* /src/dist/; \
+         rm -rf /src/build /src/*.egg-info'
+
+### Verifying against a real device
+
+`pyscsi-verify-tools` runs the applicable tools and examples against a device,
+read-only, and reports pass, fail or skip for each. It also runs `sg_inq`,
+`sg_readcap` and `sg_modes` for comparison.
+
+    podman run --rm -v "$PWD:/src:z" \
+        --device /dev/sg0 --cap-add=SYS_RAWIO \
+        python-scsi-dev pyscsi-verify-tools /dev/sg0
+
+`SYS_RAWIO` is what the `SG_IO` ioctl checks; `--device` alone is not enough.
+`/dev/sg*` needs root or the `disk` group, so rootless podman cannot reach a
+device the invoking user cannot.
+
+With no SCSI hardware to hand, the kernel can emulate one:
+
+    $ sudo modprobe scsi_debug dev_size_mb=8
+
+`ptype=0x14` gives a host-managed zoned device, the only way to exercise the
+ZBC commands. `ptype=1` and `ptype=5` change only the INQUIRY device type — the
+tape and MMC command sets are not implemented, and there is no changer type.
+Use `tgt` for those.
+
+### Verifying over iSCSI
+
+`pyscsi-verify-iscsi` stands up emulated targets with `tgt`, one LUN per device
+type, and drives the tools against all of them:
+
+    podman run --rm -v "$PWD:/src:z" python-scsi-dev pyscsi-verify-iscsi
+
+| LUN | Device type | Opcode table |
+|---|---|---|
+| 1 | disk | `sbc` |
+| 2 | media changer | `smc` |
+| 3 | tape | `ssc` |
+| 4 | cd/dvd | `mmc` |
+
+This is the only coverage the `ssc`, `mmc` and `smc` tables and the iSCSI
+transport get; the unit tests use a mock device and a real `/dev/sg*` is
+usually a disk. It needs no privileges and no kernel modules.
+
+To start the targets alone. `pyscsi-tgt-setup` returns once the LUNs are
+configured, so it needs something to hold the container open:
+
+    podman run --rm -p 3260:3260 python-scsi-dev \
+        bash -c 'pyscsi-tgt-setup && sleep infinity'
+
+### Settings
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PYSCSI_SRC` | `/src` | where the repository is mounted |
+| `PYSCSI_IQN` | `iqn.2026-01.org.pyscsi:test` | emulated target name |
+| `PYSCSI_PORTAL` | `127.0.0.1` | iSCSI portal to connect to |
+
+Also inside the image: `sg_inq`, `sg_modes`, `sg_readcap`, `sg_rep_zones` and
+the rest of `sg3_utils`; `tgtd` and `tgtadm`; and `iscsi-ls` from `libiscsi`.
 
 ## Continuous Integration
 
-[Travis CI](https://travis-ci.com/) is set up to run integration tests
-for the repository. The configuration is in the `.travis.yml` file.
+- `test.yml` — pytest and mypy across Python 3.11 to 3.14
+- `pre-commit.yml` — the same hooks you get locally
+- `pypi.yml` — builds and publishes, on release tags only
+- `container.yml` — builds and publishes the image, only when the Containerfile
+  or the workflow changes, plus manually from the Actions tab
+- `container-release.yml` — the same on a release tag, adding a `:vX.Y.Z` image
 
-Travis will execute the whole testsuite (unittests and typechecking)
-on the master branch as well as on each Pull Request.
+The first two run on every push and pull request.
 
 ## Releasing
 
-[Setuptools](https://setuptools.readthedocs.io/) is used to create the
-released packages:
+[Setuptools](https://setuptools.readthedocs.io/) is used to create the released
+packages:
 
     python-scsi $ pip install -e .[dev]
     python-scsi $ git clean -fxd
-    python-scsi $ git tag -a python-scsi-X.Y.Z
-    python-scsi $ python3 setup.py sdist bdist_wheel
+    python-scsi $ git tag -a vX.Y.Z
+    python-scsi $ python -m build
 
-The `git tag` command is used to tag the version that will be used by
-[setuptools-scm](https://github.com/pypa/setuptools_scm/) to apply the
-correct version information in the source and wheel packages.
+The `git tag` command marks the version that
+[setuptools-scm](https://github.com/pypa/setuptools_scm/) uses to derive the
+version recorded in the source and wheel packages. Tags are plain `vX.Y.Z` and
+follow [Semantic Versioning](https://semver.org/). Never edit a version by hand.
 
-The version to tag should be following [Semantic
-Versioning](https://semver.org/) (SemVer).
-
-For more details, see [Generating distribution
-archives](https://packaging.python.org/tutorials/packaging-projects/#generating-distribution-archives).
+Pushing a `v*` tag triggers the publish workflow, which refuses to publish a tag
+that is not merged into `master`.
 
 ## Repository Layout
 
 The repository follows a (mostly) standard layout for Python repositories:
 
- * `.gitignore` is part of the repository configuration and is set to
-   ignore generated files from Python testing and usage.
+ * `.gitattributes` pins every text file to LF, in the index and the working
+   tree, so a checkout on Windows and a container on Linux agree.
+ * `.gitignore` is set to ignore generated files from Python testing and usage.
  * `.pre-commit-config.yaml` contains the configuration for
    [pre-commit](https://pre-commit.com/) and its hooks.
- * `.travis.yml` configures the continuous integration used to
-   validate pull requests.
- * `mypy.ini` contains configuration for
-   [mypy](https://github.com/python/mypy).
- * `setup.py` and `setup.cfg` contain configuration for
-   [setuptools](https://setuptools.readthedocs.io/).
- * `pyproject.toml` contains [PEP
-   518](https://www.python.org/dev/peps/pep-0518/) configuration for
-   various tools.
- * `pyscsi` contains the source code of the module that is actually
-   installed by pip.
- * `tools` and `examples` contain Python entrypoints showing usage of
-   the library.
- * `tests` contains the unittest to validate the correctness of the
+ * `pyproject.toml` holds the package metadata and the configuration for
+   setuptools, setuptools-scm, pytest, mypy and isort.
+ * `containers` contains the development container and its harness.
+ * `pyscsi` contains the source code of the module that is actually installed
+   by pip.
+ * `tools` and `examples` contain Python entrypoints showing usage of the
    library.
+ * `tests` contains the unittests to validate the correctness of the library.
