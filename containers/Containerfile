@@ -2,64 +2,24 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Development image for python-scsi.
-#
-# Carries every supported Python runtime with its own virtualenv, so the whole
-# test matrix runs from a single pull rather than one image per version.
-#
-# Self-contained: the verification harness is built in as four commands, so the
-# image depends on no files outside itself.
-#
-#   pyscsi-matrix                    run the suite on every runtime
-#   pyscsi-tgt-setup                 start emulated iSCSI targets (disk, tape,
-#                                    cd/dvd, media changer) -- needs no repo
-#   pyscsi-verify-iscsi              drive the tools over iSCSI against them
-#   pyscsi-verify-tools /dev/sgN     drive the tools against a real device
-#
-# The repository is bind-mounted at /src at run time -- that is the code under
-# test, not a dependency of the image. Nothing is COPYed in, so editing a source
-# file never invalidates a layer and the build context stays tiny.
-#
-# The runtimes come from uv (python-build-standalone), not from the distro. No
-# apt repository carries all four: Debian bookworm has 3.11 alone, and on Ubuntu
-# noble deadsnakes declines to ship 3.12 and 3.14 because another release
-# packages them. uv is indifferent to the base image, so the base is chosen for
-# size and for the SCSI tooling instead.
+# Runtimes come from uv because no apt repository carries all four.
 
 FROM docker.io/library/debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_ROOT_USER_ACTION=ignore \
-    # unbuffered so output streams to the terminal line by line
     PYTHONUNBUFFERED=1 \
-    # keep __pycache__ out of the bind-mounted host tree
     PYTHONDONTWRITEBYTECODE=1 \
-    # import the package straight from the mount instead of `pip install -e .`,
-    # which would write *.egg-info and .pth files into the host tree
     PYTHONPATH=/src \
-    # hook environments and tool caches must not land in the mount either
     PRE_COMMIT_HOME=/tmp/pre-commit \
     MYPY_CACHE_DIR=/tmp/mypy-cache \
     PYTEST_ADDOPTS="-o cache_dir=/tmp/pytest-cache" \
-    # every supported runtime, and the one commands default to
     PYSCSI_VERSIONS="3.11 3.12 3.13 3.14" \
     PYSCSI_PYTHON=3.11 \
-    # where uv puts the interpreters the venvs are built from; they must survive
-    # the build, since a venv is a thin shim over its base interpreter
     UV_PYTHON_INSTALL_DIR=/opt/pythons \
     PATH=/opt/venv/3.11/bin:$PATH
 
-# The most stable layer: nothing here varies with Python or with the project's
-# dependencies, so it stays cached across both.
-#
-# git: required by setuptools_scm and pre-commit.
-# unzip: used to verify py.typed actually ships inside the built wheel.
-# libiscsi7: the shared library cython-iscsi links against at run time.
-# sg3-utils: reference implementation (sg_inq, sg_modes, sg_readcap, ...) to
-#   cross-check what this library reports against a known-good one.
-# tgt: emulates disk, tape, cd/dvd and media changer targets over iSCSI, so the
-#   ssc, mmc and smc opcode tables can be exercised without that hardware.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
@@ -71,33 +31,17 @@ RUN apt-get update \
       unzip \
  && rm -rf /var/lib/apt/lists/*
 
-# The transports are built from their repositories, not installed from PyPI:
-# the releases lag the source, and this image exists to test against what the
-# projects actually are. cython-iscsi 1.0 on PyPI predates Context.lun_reset(),
-# for one.
-#
-# These are build arguments so a caller can pin exact commits. That matters for
-# more than reproducibility: with the default `master` the layer caches on the
-# literal string, so a rebuild would silently reuse whatever was current when it
-# was first built. CI resolves both refs to commit SHAs and passes them, which
-# makes an upstream commit change the argument and rebuild the layer. Locally,
-# pass --build-arg or --no-cache to refresh.
+# With the default `master` the layer caches on that literal string, so a
+# rebuild reuses whatever was current the first time. CI passes resolved commit
+# SHAs; locally, --build-arg or --no-cache refreshes.
 ARG SGIO_REF=master
 ARG ISCSI_REF=master
 
-# Runtimes, virtualenvs and the toolchain that compiles the transports, all in
-# ONE layer. A purge in a later layer reclaims nothing -- the files remain in
-# the layer that added them and the removal is only a whiteout. Doing it here
-# takes the image from 1.03 GB to well under half that.
+# One layer: a purge in a later layer reclaims nothing.
 #
-# 3.11 is the project floor and carries the full toolchain; the others only
-# need to run the suite, which is what they are for.
-#
-# `set -eux` rather than an && chain: a chain ending in `|| true` -- which the
-# cleanup below needs -- returns 0 for the WHOLE chain when an early command
-# fails, so a broken image builds green. That is exactly how an earlier revision
-# shipped with no runtimes at all. The explicit check before the purge is the
-# second guard: it fails the build rather than deferring the discovery to a user.
+# `set -eux`, not an && chain: a chain ending in `|| true`, which the cleanup
+# needs, returns 0 for the whole chain when an early command fails. An earlier
+# revision shipped with no runtimes that way.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -136,17 +80,10 @@ RUN set -eux; \
            /opt/pythons/*/share/terminfo /opt/pythons/*/share/man \
            /usr/share/doc /usr/share/man /usr/share/locale
 
-# The bind-mounted repo is owned by a foreign uid. Without this git refuses to
-# operate on it ("dubious ownership"), which breaks setuptools_scm and
-# pre-commit. Containers never commit; git runs on the host only.
+# The mount has a foreign uid; without this git rejects it as dubious ownership
+# and setuptools_scm and pre-commit break.
 RUN git config --global --add safe.directory /src
 
-# ---------------------------------------------------------------------------
-# Shared helpers, sourced by the harness commands.
-#
-# PYSCSI_PYTHON selects the runtime, so every command can be pointed at any
-# version without changing how it is invoked.
-# ---------------------------------------------------------------------------
 RUN cat > /usr/local/lib/pyscsi-report.sh <<'REPORT'
 PY="/opt/venv/${PYSCSI_PYTHON:-3.11}/bin/python"
 [ -x "$PY" ] || { echo "no runtime for PYSCSI_PYTHON=$PYSCSI_PYTHON" >&2; exit 2; }
@@ -195,12 +132,6 @@ summarise() {
 }
 REPORT
 
-# ---------------------------------------------------------------------------
-# pyscsi-matrix [pytest args]
-#
-# The suite on every runtime, with a summary. This is what the multi-runtime
-# image exists for: the matrix from one pull.
-# ---------------------------------------------------------------------------
 RUN cat > /usr/local/bin/pyscsi-matrix <<'MATRIX' && chmod +x /usr/local/bin/pyscsi-matrix
 #!/bin/bash
 set -u
@@ -232,13 +163,6 @@ echo "════════════════════════�
 exit $rc
 MATRIX
 
-# ---------------------------------------------------------------------------
-# pyscsi-tgt-setup
-#
-# One LUN per SCSI device type over iSCSI, so the ssc, mmc and smc opcode
-# tables and the iSCSI transport can be exercised without owning a tape library
-# or a jukebox. Entirely userspace: no kernel module, no privileges.
-# ---------------------------------------------------------------------------
 RUN cat > /usr/local/bin/pyscsi-tgt-setup <<'SETUP' && chmod +x /usr/local/bin/pyscsi-tgt-setup
 #!/bin/bash
 set -eu
@@ -273,8 +197,6 @@ tgtadm --lld iscsi --op new --mode logicalunit --tid 1 --lun 1 \
 
 tgtadm --lld iscsi --op new --mode logicalunit --tid 1 --lun 2 \
     -b "$STORE/changer.img" --device-type=changer
-# SMC element types: 1 medium transport, 2 storage, 3 import/export,
-# 4 data transfer. Addresses are arbitrary but must not overlap.
 tgtadm --lld iscsi --op update --mode logicalunit --tid 1 --lun 2 \
     --params element_type=1,start_address=1,quantity=1
 tgtadm --lld iscsi --op update --mode logicalunit --tid 1 --lun 2 \
@@ -299,14 +221,6 @@ echo "  lun 3  tape           iscsi://127.0.0.1/$IQN/3"
 echo "  lun 4  cd/dvd         iscsi://127.0.0.1/$IQN/4"
 SETUP
 
-# ---------------------------------------------------------------------------
-# pyscsi-verify-tools /dev/sgN
-#
-# Drive the tools and examples against a real device. Selection is by
-# peripheral device type from INQUIRY -- running the media changer tool against
-# a disk proves nothing -- and by mode page support where a tool needs one.
-# Every command issued is read-only.
-# ---------------------------------------------------------------------------
 RUN cat > /usr/local/bin/pyscsi-verify-tools <<'VTOOLS' && chmod +x /usr/local/bin/pyscsi-verify-tools
 #!/bin/bash
 set -u
@@ -373,8 +287,6 @@ else
     skip_one "tools/mtx.py" "device type $DEVTYPE is not a media changer"
 fi
 
-# An independent implementation of the same commands. If this library and
-# sg3_utils disagree about a device, the disagreement is the finding.
 run_one "sg3_utils sg_inq (reference)"         sg_inq "$DEVICE"
 run_one "sg3_utils sg_readcap (reference)"     sg_readcap "$DEVICE"
 run_one "sg3_utils sg_modes --all (reference)" sg_modes --all "$DEVICE"
@@ -389,13 +301,6 @@ echo "════════════════════════�
 [ "$fail" -eq 0 ]
 VTOOLS
 
-# ---------------------------------------------------------------------------
-# pyscsi-verify-iscsi
-#
-# Drive the tools over iSCSI against emulated targets, one per device type.
-# This is the only coverage the ssc, mmc and smc tables and the iSCSI transport
-# get -- the unit tests use MockDevice, and a real /dev/sg* is usually a disk.
-# ---------------------------------------------------------------------------
 RUN cat > /usr/local/bin/pyscsi-verify-iscsi <<'VISCSI' && chmod +x /usr/local/bin/pyscsi-verify-iscsi
 #!/bin/bash
 set -u
@@ -461,9 +366,7 @@ WORKDIR /src
 
 CMD ["pytest", "-vv"]
 
-# Last on purpose: labels carry no filesystem content but do invalidate every
-# layer below them, and image.source is what links the package to the
-# repository on ghcr.
+# Last because a label invalidates every layer below it.
 LABEL org.opencontainers.image.title="python-scsi dev environment" \
       org.opencontainers.image.description="Python 3.11-3.14, both SCSI transports, sg3_utils and tgt" \
       org.opencontainers.image.source="https://github.com/python-scsi/python-scsi" \
