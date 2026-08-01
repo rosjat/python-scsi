@@ -33,10 +33,7 @@ class SCSICommand(metaclass=ExMETA):
         :param dataout_alloclen: integer representing the size of the data_out buffer
         :param datain_alloclen: integer representing the size of the data_in buffer
         """
-        # we need the _cdb_bits and _cdb values in staticmethods so we have to set it
-        # on the class and not on the instance of the class. that might be wrong ...
-        SCSICommand._cdb_bits = self._cdb_bits
-        SCSICommand._cdb = SCSICommand.init_cdb(opcode)
+        self._cdb = SCSICommand.init_cdb(opcode)
         self.dataout = bytearray(dataout_alloclen)
         self.datain = bytearray(datain_alloclen)
         self.result = {}
@@ -52,6 +49,16 @@ class SCSICommand(metaclass=ExMETA):
         init a byte array representing a command descriptor block with fixed length
         depending on the Opcode
 
+        :param opcode: a OpCode object
+        :return: a byte array
+        """
+        return bytearray(SCSICommand.cdb_length(opcode.value))
+
+    @staticmethod
+    def cdb_length(opcode_value):
+        """
+        length in bytes of the command descriptor block for an operation code
+
         The length follows the operation code's group code, which is the top
         three bits of the opcode:
 
@@ -66,35 +73,32 @@ class SCSICommand(metaclass=ExMETA):
           group 6   0xC0-0xDF   vendor specific
           group 7   0xE0-0xFF   vendor specific
 
-        :param opcode: a OpCode object
-        :return: a byte array
+        :param opcode_value: the operation code as an integer
+        :return: the CDB length in bytes
         """
-        if 0x00 <= opcode.value <= 0x1F:
-            cdb = bytearray(6)
-        elif 0x20 <= opcode.value <= 0x5F:
-            cdb = bytearray(10)
-        elif 0x60 <= opcode.value <= 0x7F:
+        if 0x00 <= opcode_value <= 0x1F:
+            return 6
+        if 0x20 <= opcode_value <= 0x5F:
+            return 10
+        if 0x60 <= opcode_value <= 0x7F:
             # Group 3 has no fixed length: its size comes from the additional
-            # length field in the CDB itself, which init_cdb never sees. A
-            # command built on 0x7E or 0x7F therefore needs its own sizing and
-            # cannot use this helper.
+            # length field in the CDB itself, which is not visible here. A
+            # command built on 0x7E or 0x7F needs its own sizing.
             raise SCSICommand.OpcodeException(
-                f"opcode 0x{opcode.value:02X} is a group 3 variable length CDB,"
+                f"opcode 0x{opcode_value:02X} is a group 3 variable length CDB,"
                 " whose size comes from the additional length field rather than"
                 " the opcode"
             )
-        elif 0x80 <= opcode.value <= 0x9F:
-            cdb = bytearray(16)
-        elif 0xA0 <= opcode.value <= 0xBF:
-            cdb = bytearray(12)
-        else:
-            # Groups 6 and 7 are vendor specific, so their length is not
-            # defined by the standard.
-            raise SCSICommand.OpcodeException(
-                f"opcode 0x{opcode.value:02X} is vendor specific and has no"
-                " CDB length defined by the standard"
-            )
-        return cdb
+        if 0x80 <= opcode_value <= 0x9F:
+            return 16
+        if 0xA0 <= opcode_value <= 0xBF:
+            return 12
+        # Groups 6 and 7 are vendor specific, so their length is not defined by
+        # the standard.
+        raise SCSICommand.OpcodeException(
+            f"opcode 0x{opcode_value:02X} is vendor specific and has no"
+            " CDB length defined by the standard"
+        )
 
     @property
     def result(self):
@@ -244,20 +248,20 @@ class SCSICommand(metaclass=ExMETA):
         for b in self._cdb:
             print("0x%02X " % b)
 
-    @staticmethod
-    def marshall_cdb(cdb):
+    @classmethod
+    def marshall_cdb(cls, cdb):
         """
         Marshall an SCSICommand cdb
 
         :param cdb: a dict with key:value pairs representing a code descriptor block
         :return result: a byte array representing a code descriptor block
         """
-        result = bytearray(len(SCSICommand._cdb))
-        encode_dict(cdb, SCSICommand._cdb_bits, result)
+        result = bytearray(cls.cdb_length(cdb["opcode"]))
+        encode_dict(cdb, cls._cdb_bits, result)
         return result
 
-    @staticmethod
-    def unmarshall_cdb(cdb):
+    @classmethod
+    def unmarshall_cdb(cls, cdb):
         """
         Unmarshall an SCSICommand cdb
 
@@ -265,7 +269,7 @@ class SCSICommand(metaclass=ExMETA):
         :return result: a dict
         """
         result = {}
-        decode_bits(cdb, SCSICommand._cdb_bits, result)
+        decode_bits(cdb, cls._cdb_bits, result)
         return result
 
     def build_cdb(self, **kwargs):
@@ -276,7 +280,7 @@ class SCSICommand(metaclass=ExMETA):
         :return: a byte array representing a code descriptor block
         """
         cdb = {key: kwargs[key] for key in kwargs.keys()}
-        return SCSICommand.marshall_cdb(cdb)
+        return self.marshall_cdb(cdb)
 
     def unmarshall(self, **kwargs):
         """

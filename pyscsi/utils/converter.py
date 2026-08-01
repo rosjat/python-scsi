@@ -106,6 +106,9 @@ def encode_dict(data_dict, check_dict, result):
 
     for now we assume he have to right shift only
 
+    Bitmask fields are written with ^=, so `result` must be zeroed and must not
+    be encoded into twice: a second pass toggles bits back off.
+
     :param data_dict:  a dict mapping field-names to notation tuples.
     :param check_dict: a dict mapping field-names to notation tuples.
     :param result: a buffer containing the bits encoded
