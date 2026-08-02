@@ -10,13 +10,13 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pyscsi.pyscsi.scsi_cdb_persistentreservein import PersistentReserveInReadFullStatus
 from pyscsi.pyscsi.scsi_command import SCSICommand
+from pyscsi.utils.typedefs import CheckDict
 
 if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode
 
 from pyscsi.pyscsi.scsi_enum_persistentreserve import *
 from pyscsi.utils.converter import (
-    CheckDict,
     decode_bits,
     encode_dict,
     scsi_ba_to_int,
@@ -61,7 +61,9 @@ class PersistentReserveOut(SCSICommand):
     }
 
     @classmethod
-    def marshall_dataout(cls, opcode, service_action, data):
+    def marshall_dataout(
+        cls, opcode: "OpCode", service_action: int, data: Dict[str, Any]
+    ) -> bytearray:
         """
         Marshall the PersistentReserveOut dataout.
 
@@ -109,7 +111,7 @@ class PersistentReserveOut(SCSICommand):
         service_action: int,
         scope: int = 0,
         pr_type: int = 0,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         initialize a new instance

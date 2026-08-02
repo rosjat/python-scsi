@@ -9,11 +9,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
 import pyscsi.pyscsi.scsi_enum_modesense as modesense_enums
 from pyscsi.pyscsi.scsi_command import SCSICommand
+from pyscsi.utils.typedefs import CheckDict
 
 if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode
 
-from pyscsi.utils.converter import CheckDict, decode_bits, encode_dict, scsi_int_to_ba
+from pyscsi.utils.converter import decode_bits, encode_dict, scsi_int_to_ba
 from pyscsi.utils.table import BitsTable, ValueTable
 
 #

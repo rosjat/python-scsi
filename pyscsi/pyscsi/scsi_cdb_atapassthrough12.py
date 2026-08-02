@@ -8,7 +8,7 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pyscsi.pyscsi.scsi_command import SCSICommand
-from pyscsi.utils.converter import CheckDict
+from pyscsi.utils.typedefs import CheckDict
 
 if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode

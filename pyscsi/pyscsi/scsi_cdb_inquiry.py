@@ -5,12 +5,16 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, cast
 
 import pyscsi.pyscsi.scsi_enum_inquiry as inquiry_enums
 import pyscsi.utils.converter as convert
 from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.utils.table import ValueTable
+from pyscsi.utils.typedefs import CheckDict
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI Inquiry command and definitions
@@ -222,7 +226,13 @@ class Inquiry(SCSICommand):
     VERSION: ClassVar[ValueTable] = inquiry_enums.VERSION
     VPD: ClassVar[ValueTable] = inquiry_enums.VPD
 
-    def __init__(self, opcode, evpd=0, page_code=0, alloclen=96):
+    def __init__(
+        self,
+        opcode: "OpCode",
+        evpd: int = 0,
+        page_code: int = 0,
+        alloclen: int = 96,
+    ) -> None:
         """
         initialize a new instance
 
@@ -238,37 +248,46 @@ class Inquiry(SCSICommand):
         )
 
     @classmethod
-    def marshall_designator(cls, _type, data):
+    def marshall_designator(
+        cls, _type: int, data: Dict[str, Any]
+    ) -> Optional[bytearray]:
         """
         static helper method to marshall designator data
+
+        A designator type with no branch below returns None.
 
         :param _type: type of the designator
         :param data: a dict with designator data
         :return: a byte array
         """
+        # The pass-through branches hand back whatever the caller stored, so
+        # they are Any; unmarshall_designator produces bytearray slices.
         if _type == cls.DESIGNATOR.VENDOR_SPECIFIC:
-            return data["vendor_specific"]
+            return cast(bytearray, data["vendor_specific"])
 
         if _type == cls.DESIGNATOR.T10_VENDOR_ID:
-            return data["t10_vendor_id"] + data["vendor_specific_id"]
+            return cast(bytearray, data["t10_vendor_id"] + data["vendor_specific_id"])
 
         if _type == cls.DESIGNATOR.EUI_64:
             if "identifier_extension" in data:
-                return (
+                return cast(
+                    bytearray,
                     data["identifier_extension"]
                     + convert.scsi_int_to_ba(data["ieee_company_id"], 3)
-                    + data["vendor_specific_extension_id"]
+                    + data["vendor_specific_extension_id"],
                 )
             if "directory_id" in data:
-                return (
+                return cast(
+                    bytearray,
                     convert.scsi_int_to_ba(data["ieee_company_id"], 3)
                     + data["vendor_specific_extension_id"]
-                    + data["directory_id"]
+                    + data["directory_id"],
                 )
 
-            return (
+            return cast(
+                bytearray,
                 convert.scsi_int_to_ba(data["ieee_company_id"], 3)
-                + data["vendor_specific_extension_id"]
+                + data["vendor_specific_extension_id"],
             )
 
         if _type == cls.DESIGNATOR.NAA:
@@ -303,18 +322,20 @@ class Inquiry(SCSICommand):
             return _r
 
         if _type == cls.DESIGNATOR.MD5_LOGICAL_IDENTIFIER:
-            return data["md5_logical_identifier"]
+            return cast(bytearray, data["md5_logical_identifier"])
 
         if _type == cls.DESIGNATOR.SCSI_NAME_STRING:
-            return data["scsi_name_string"]
+            return cast(bytearray, data["scsi_name_string"])
 
         if _type == cls.DESIGNATOR.PCI_EXPRESS_ROUTING_ID:
             _r = bytearray(8)
             convert.encode_dict(data, cls._pci_express_routing_id_bits, _r)
             return _r
 
+        return None
+
     @classmethod
-    def marshall_designation_descriptor(cls, data):
+    def marshall_designation_descriptor(cls, data: Dict[str, Any]) -> bytearray:
         """
         static helper method to marshall designation desciptor data
 
@@ -324,12 +345,17 @@ class Inquiry(SCSICommand):
         _r = bytearray(4)
         convert.encode_dict(data, cls._designator_bits, _r)
 
-        _r += cls.marshall_designator(data["designator_type"], data["designator"])
+        # An unknown designator type yields None here and the += raises
+        # TypeError; cast rather than assert to keep that error.
+        _r += cast(
+            bytearray,
+            cls.marshall_designator(data["designator_type"], data["designator"]),
+        )
         _r[3] = len(_r) - 4
         return _r
 
     @classmethod
-    def unmarshall_designator(cls, _type, data):
+    def unmarshall_designator(cls, _type: int, data: bytearray) -> Dict[str, Any]:
         """
         static helper method to unmarshall designator data
 
@@ -337,7 +363,7 @@ class Inquiry(SCSICommand):
         :param data: a byte array with designator data
         :return: a dict
         """
-        _d = {}
+        _d: Dict[str, Any] = {}
         if _type == cls.DESIGNATOR.VENDOR_SPECIFIC:
             _d["vendor_specific"] = data
 
@@ -389,31 +415,36 @@ class Inquiry(SCSICommand):
         return _d
 
     @classmethod
-    def unmarshall_ata_information(cls, data):
-        result = {}
+    def unmarshall_ata_information(cls, data: bytearray) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
         _sig = data[36:41]
         _identify = data[44:]
         convert.decode_bits(data, cls._ata_information_bits, result)
-        _r = {}
+        _r: Dict[str, Any] = {}
         convert.decode_bits(_sig, cls._ata_signature_bits, _r)
         result.update({"signature": _r})
         convert.decode_bits(_identify, cls._ata_identify_bits, _r)
-        _gc = {}
+        _gc: Dict[str, Any] = {}
         convert.decode_bits(_identify[:2], cls._ata_identify_gen_conf_bits, _gc)
         _r["general_config"] = _gc
         result.update({"identify": _r})
         return result
 
     @classmethod
-    def unmarshall_datain(cls, data, evpd=0):
+    def unmarshall_datain(
+        cls, data: bytearray, evpd: int = 0
+    ) -> Optional[Dict[str, Any]]:
         """
         Unmarshall the Inquiry datain buffer
+
+        A page_code matching none of the branches below falls through and
+        returns None.
 
         :param data: a byte array with inquiry data
         :param evpd: evpd can be 0 or 1
         :return result: a dict
         """
-        result = {}
+        result: Dict[str, Any] = {}
         convert.decode_bits(data, cls._datain_bits, result)
 
         if evpd == 0:
@@ -459,11 +490,11 @@ class Inquiry(SCSICommand):
 
         if result["page_code"] == cls.VPD.DEVICE_IDENTIFICATION:
             data = data[4:]
-            _d = []
+            _d: List[Any] = []
             while len(data):
                 _bc = data[3] + 4
 
-                _dd = {}
+                _dd: Dict[str, Any] = {}
                 convert.decode_bits(data, cls._designator_bits, _dd)
                 if _dd["piv"] == 0 or (
                     _dd["association"] != 1 and _dd["association"] != 2
@@ -478,8 +509,10 @@ class Inquiry(SCSICommand):
             result.update({"designator_descriptors": _d})
             return result
 
+        return None
+
     @classmethod
-    def marshall_datain(cls, data):
+    def marshall_datain(cls, data: Dict[str, Any]) -> bytearray:
         """
         Marshall the Inquiry datain.
 

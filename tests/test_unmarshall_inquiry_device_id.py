@@ -28,7 +28,10 @@ DEVICE_RESPONSE = bytearray.fromhex(
 
 class InquiryDeviceIdentification(unittest.TestCase):
     def setUp(self):
-        self.parsed = Inquiry.unmarshall_datain(DEVICE_RESPONSE, evpd=1)
+        parsed = Inquiry.unmarshall_datain(DEVICE_RESPONSE, evpd=1)
+        # None only for a page code with no branch; this one is DEVICE_IDENTIFICATION.
+        assert parsed is not None
+        self.parsed = parsed
 
     def test_all_designators_are_parsed(self):
         self.assertEqual(len(self.parsed["designator_descriptors"]), 7)
@@ -97,6 +100,7 @@ class InquiryAtaInformation(unittest.TestCase):
     def test_sat_fields_do_not_overlap(self):
         data = self.HEADER + bytearray(572 - len(self.HEADER))
         r = Inquiry.unmarshall_datain(data, evpd=1)
+        assert r is not None
 
         self.assertEqual(bytes(r["sat_vendor_identification"]), b"linux   ")
         # 16 bytes at offset 16; a longer read swallows the revision level,

@@ -8,11 +8,12 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pyscsi.pyscsi.scsi_command import SCSICommand
+from pyscsi.utils.typedefs import CheckDict
 
 if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode
+
 from pyscsi.utils.converter import (
-    CheckDict,
     decode_bits,
     encode_dict,
     scsi_ba_to_int,

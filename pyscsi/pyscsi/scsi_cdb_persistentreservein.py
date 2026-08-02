@@ -6,6 +6,8 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict, List
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_enum_persistentreserve import *
 from pyscsi.pyscsi.scsi_transport_id import (
@@ -18,6 +20,10 @@ from pyscsi.utils.converter import (
     scsi_ba_to_int,
     scsi_int_to_ba,
 )
+from pyscsi.utils.typedefs import CheckDict
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI PersistentReserveIn command and definitions
@@ -40,30 +46,20 @@ __all__ = [
 ]
 
 
-def _pad4_len(s):
-    """
-    Calculate the number of bytes necessary to hold the specified string incl a null
-    terminator, padded to a multiple of 4 bytes
-    """
-    _l = len(s) + 1
-    _rem = _l % 4
-    if _rem:
-        return _l + (4 - _rem)
-    return _l
-
-
 class PersistentReserveIn(SCSICommand):
     """
     A class to hold information from a PersistentReserveIn command to a scsi device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "service_action": [0x1F, 1],
         "alloc_len": [0xFFFF, 7],
     }
 
-    def __init__(self, opcode, service_action, alloclen=1024):
+    def __init__(
+        self, opcode: "OpCode", service_action: int, alloclen: int = 1024
+    ) -> None:
         """
         initialize a new instance
 
@@ -84,29 +80,29 @@ class PersistentReserveInReadKeys(PersistentReserveIn):
     READ KEYS service action.
     """
 
-    _header_bits = {
+    _header_bits: CheckDict = {
         "pr_generation": [0xFFFFFFFF, 0],
         "additional_length": [0xFFFFFFFF, 4],
     }
 
-    def __init__(self, opcode, alloclen=1024, **kwargs):
+    def __init__(self, opcode: "OpCode", alloclen: int = 1024, **kwargs: Any) -> None:
         PersistentReserveIn.__init__(
             self, opcode, opcode.serviceaction.READ_KEYS, alloclen
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the PersistentReserveInReadKeys datain.
 
         :param data: a byte array
         :return result: a dic
         """
-        result = {}
+        result: Dict[str, Any] = {}
         result["pr_generation"] = scsi_ba_to_int(data[:4])
         additional_length = scsi_ba_to_int(data[4:8])
         data = data[8 : additional_length + 8]
-        keys = []
+        keys: List[int] = []
         while len(data):
             key = scsi_ba_to_int(data[:8])
             data = data[8:]
@@ -121,26 +117,26 @@ class PersistentReserveInReadReservation(PersistentReserveIn):
     READ RESERVATION service action.
     """
 
-    _bits = {
+    _bits: CheckDict = {
         "reservation_key": [0xFFFFFFFFFFFFFFFF, 8],
         "scope": [0xF0, 21],
         "type": [0x0F, 21],
     }
 
-    def __init__(self, opcode, alloclen=1024, **kwargs):
+    def __init__(self, opcode: "OpCode", alloclen: int = 1024, **kwargs: Any) -> None:
         PersistentReserveIn.__init__(
             self, opcode, opcode.serviceaction.READ_RESERVATION, alloclen
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the PersistentReserveInReadReservation datain.
 
         :param data: a byte array
         :return result: a dic
         """
-        result = {}
+        result: Dict[str, Any] = {}
         result["pr_generation"] = scsi_ba_to_int(data[:4])
         additional_length = scsi_ba_to_int(data[4:8])
         if additional_length == 0:
@@ -157,7 +153,7 @@ class PersistentReserveInReportCapabilities(PersistentReserveIn):
     REPORT CAPABILITIES service action.
     """
 
-    _bits = {
+    _bits: CheckDict = {
         "length": [0xFFFF, 0],
         "ptpl_c": [0x01, 2],
         "atp_c": [0x04, 2],
@@ -170,7 +166,7 @@ class PersistentReserveInReportCapabilities(PersistentReserveIn):
         "pr_type_mask": [0xFFFF, 4],
     }
 
-    _pr_type_mask_bits = {
+    _pr_type_mask_bits: CheckDict = {
         "wr_ex": [0x02, 4],
         "ex_ac": [0x08, 4],
         "wr_ex_ro": [0x20, 4],
@@ -179,27 +175,27 @@ class PersistentReserveInReportCapabilities(PersistentReserveIn):
         "ex_ac_ar": [0x01, 5],
     }
 
-    def __init__(self, opcode, alloclen=1024, **kwargs):
+    def __init__(self, opcode: "OpCode", alloclen: int = 1024, **kwargs: Any) -> None:
         PersistentReserveIn.__init__(
             self, opcode, opcode.serviceaction.REPORT_CAPABILITIES, alloclen
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the PersistentReserveInReportCapabilities datain.
 
         :param data: a byte array
         :return result: a dic
         """
-        result = {}
+        result: Dict[str, Any] = {}
         decode_bits(data, cls._bits, result)
         if result["length"] == 0:
             return {}
         elif result["length"] != 8:
             raise ValueError("REPORT CAPABILITIES has incorrect additional length")
         del result["length"]
-        _r = {}
+        _r: Dict[str, Any] = {}
         decode_bits(data, cls._pr_type_mask_bits, _r)
         result["pr_type_mask"] = _r
         return result
@@ -211,7 +207,7 @@ class PersistentReserveInReadFullStatus(PersistentReserveIn):
     READ FULL STATUS service action.
     """
 
-    _full_status_desc_bits = {
+    _full_status_desc_bits: CheckDict = {
         "reservation_key": [0xFFFFFFFFFFFFFFFF, 0],
         "r_holder": [0x01, 12],
         "all_tg_pt": [0x02, 12],
@@ -221,18 +217,13 @@ class PersistentReserveInReadFullStatus(PersistentReserveIn):
         "additional_desc_length": [0xFFFFFFFF, 20],
     }
 
-    _transport_id_bits = {
-        "tpid_format": [0xC0, 0],
-        "protocol_id": [0x0F, 0],
-    }
-
-    def __init__(self, opcode, alloclen=1024, **kwargs):
+    def __init__(self, opcode: "OpCode", alloclen: int = 1024, **kwargs: Any) -> None:
         PersistentReserveIn.__init__(
             self, opcode, opcode.serviceaction.READ_FULL_STATUS, alloclen
         )
 
     @classmethod
-    def unmarshall_transport_id(cls, data):
+    def unmarshall_transport_id(cls, data: bytearray) -> Dict[str, Any]:
         """
         static helper method to unmarshall TransportID data
 
@@ -242,7 +233,7 @@ class PersistentReserveInReadFullStatus(PersistentReserveIn):
         return unmarshall_transport_id(data)
 
     @classmethod
-    def marshall_transport_id(cls, data):
+    def marshall_transport_id(cls, data: Dict[str, Any]) -> bytearray:
         """
         static helper method to marshall TransportID data
 
@@ -252,14 +243,14 @@ class PersistentReserveInReadFullStatus(PersistentReserveIn):
         return marshall_transport_id(data)
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the PersistentReserveInReadFullStatus datain.
 
         :param data: a byte array
         :return result: a dic
         """
-        result = {}
+        result: Dict[str, Any] = {}
         result["pr_generation"] = scsi_ba_to_int(data[:4])
         result["full_status"] = []
         additional_length = scsi_ba_to_int(data[4:8])
@@ -267,7 +258,7 @@ class PersistentReserveInReadFullStatus(PersistentReserveIn):
             return result
         data = data[8 : additional_length + 8]
         while len(data):
-            _status_desc = {}
+            _status_desc: Dict[str, Any] = {}
             decode_bits(data, cls._full_status_desc_bits, _status_desc)
             data = data[24:]
             additional_desc_length = _status_desc["additional_desc_length"]

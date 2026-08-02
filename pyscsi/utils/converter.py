@@ -18,22 +18,72 @@ from typing import (
     cast,
 )
 
+from pyscsi.utils.exception import NotSupportedArgumentError
+from pyscsi.utils.typedefs import CheckDict, DecodedValue, FieldNotation
+
 if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode, OpcodeTable
 
-# A field layout entry is one of two shapes:
-#
-#   [bitmask, offset]                  the legacy form
-#   ('b' | 'w' | 'dw', offset, length) a byte/word/dword blob
-#
-# Neither len(val) == 2 nor isinstance(val, tuple) discriminates them: the
-# tables mix lists and tuples for both forms. The element type therefore stays
-# Any and the two readers below cast at the point of use; validate_check_dict
-# enforces the contract at runtime across every table instead.
-FieldNotation = Sequence[Any]
-CheckDict = Mapping[str, FieldNotation]
+# CheckDict is listed so it stays importable from here, which is where it has
+# always lived.
+__all__ = [
+    "CheckDict",
+    "decode_bits",
+    "encode_dict",
+    "get_opcode",
+    "print_data",
+    "scsi_ba_to_int",
+    "scsi_int_to_ba",
+    "validate_check_dict",
+]
 
-DecodedValue = Union[int, bytearray]
+BLOB_WIDTHS = {"b": 1, "w": 2, "dw": 4}
+
+
+def validate_check_dict(check_dict: CheckDict, name: str = "check_dict") -> None:
+    """
+    Check that every entry is a shape decode_bits/encode_dict can read.
+
+    The static type is Sequence[Any] because the two notations cannot be
+    expressed as a checkable Union, so this carries the contract instead.
+
+    :param check_dict: a dict mapping field-names to notation tuples
+    :param name: identifies the table in the error message
+    :raises NotSupportedArgumentError: on any entry of the wrong shape
+    """
+    for key, val in check_dict.items():
+        where = "%s[%r]" % (name, key)
+        if not isinstance(val, (list, tuple)):
+            raise NotSupportedArgumentError(
+                "%s is %s, expected a list or tuple" % (where, type(val).__name__)
+            )
+
+        if len(val) == 2:
+            bitmask, offset = val
+            if not isinstance(bitmask, int) or isinstance(bitmask, bool):
+                raise NotSupportedArgumentError("%s bitmask is not an int" % where)
+            if bitmask <= 0:
+                raise NotSupportedArgumentError("%s bitmask is %r" % (where, bitmask))
+            if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+                raise NotSupportedArgumentError("%s offset is %r" % (where, offset))
+            continue
+
+        if len(val) == 3:
+            kind, offset, length = val
+            if kind not in BLOB_WIDTHS:
+                raise NotSupportedArgumentError(
+                    "%s type is %r, expected one of %s"
+                    % (where, kind, sorted(BLOB_WIDTHS))
+                )
+            if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+                raise NotSupportedArgumentError("%s offset is %r" % (where, offset))
+            if not isinstance(length, int) or isinstance(length, bool) or length <= 0:
+                raise NotSupportedArgumentError("%s length is %r" % (where, length))
+            continue
+
+        raise NotSupportedArgumentError(
+            "%s has %d elements, expected 2 or 3" % (where, len(val))
+        )
 
 
 def scsi_int_to_ba(to_convert: int = 0, array_size: int = 4) -> bytearray:

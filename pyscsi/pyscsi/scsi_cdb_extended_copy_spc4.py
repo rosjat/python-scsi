@@ -5,9 +5,15 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, cast
+
 from pyscsi.pyscsi.scsi_cdb_inquiry import Inquiry
 from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.utils.converter import encode_dict
+from pyscsi.utils.typedefs import CheckDict, CodeTable
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI ReportTargetPortGroups command and definitions
@@ -71,7 +77,7 @@ class ExtendedCopy(SCSICommand):
 
     # See SPC-4 6.3.6.1 Target descriptors introduction,
     # Table 103 - EXTENDED COPY target descriptor type codes
-    _target_descriptor_type_codes = {
+    _target_descriptor_type_codes: ClassVar[CodeTable] = {
         0xE0: {"name": "Fibre Channel N_Port_Name target descriptor", "size": 32},
         0xE1: {"name": "Fibre Channel N_Port_ID target descriptor", "size": 32},
         0xE2: {
@@ -101,7 +107,7 @@ class ExtendedCopy(SCSICommand):
     # Table 106 - Device type specific parameters in target descriptors
     # Also SPC-4 6.4.2 Standard INQUIRY data
     # Table 136 - Peripheral device type
-    _device_type_codes = {
+    _device_type_codes: ClassVar[CodeTable] = {
         0x00: {
             "name": "Block",
             "description": "Direct access block device (e.g., magnetic disk)",
@@ -128,7 +134,7 @@ class ExtendedCopy(SCSICommand):
 
     # See SPC-4 6.3.7.1 Segment descriptors introduction
     # Table 114 - EXTENDED COPY segment descriptor type codes
-    _segment_descriptor_type_codes = {
+    _segment_descriptor_type_codes: ClassVar[CodeTable] = {
         0x00: {
             "name": "block -> stream",
             "description": "Copy from block device to stream device",
@@ -248,15 +254,15 @@ class ExtendedCopy(SCSICommand):
 
     def __init__(
         self,
-        opcode,
-        list_identifier=0,
-        sequential_striped=0,
-        nrcr=0,
-        priority=0,
-        target_descriptor_list=[],
-        segment_descriptor_list=[],
-        inline_data=bytearray(0),
-    ):
+        opcode: "OpCode",
+        list_identifier: int = 0,
+        sequential_striped: int = 0,
+        nrcr: int = 0,
+        priority: int = 0,
+        target_descriptor_list: List[Dict[str, Any]] = [],
+        segment_descriptor_list: List[Dict[str, Any]] = [],
+        inline_data: bytearray = bytearray(0),
+    ) -> None:
         """
         initialize a new instance
 
@@ -367,20 +373,20 @@ class ExtendedCopy(SCSICommand):
     @classmethod
     def marshall_parameter_list(
         cls,
-        list_identifier,
-        sequential_striped,
-        nrcr,
-        priority,
-        target_descriptor_list,
-        segment_descriptor_list,
-        inline_data,
-    ):
-        target_data = []
+        list_identifier: int,
+        sequential_striped: int,
+        nrcr: int,
+        priority: int,
+        target_descriptor_list: List[Dict[str, Any]],
+        segment_descriptor_list: List[Dict[str, Any]],
+        inline_data: bytearray,
+    ) -> bytearray:
+        target_data: List[bytearray] = []
         for target_dict in target_descriptor_list:
             target_data.append(cls.marshall_target(target_dict))
         target_descriptor_list_length = sum([len(item) for item in target_data])
 
-        segment_data = []
+        segment_data: List[bytearray] = []
         for segment_dict in segment_descriptor_list:
             segment = cls.marshall_segment(segment_dict)
             if segment:
@@ -409,7 +415,7 @@ class ExtendedCopy(SCSICommand):
         return _r + b"".join(target_data) + b"".join(segment_data) + inline_data
 
     @classmethod
-    def marshall_target(cls, target_dict):
+    def marshall_target(cls, target_dict: Dict[str, Any]) -> bytearray:
         """
         Marshall a target descriptor
 
@@ -558,8 +564,11 @@ class ExtendedCopy(SCSICommand):
 
     @classmethod
     def marshall_target_descriptor_parameters(
-        cls, descriptor_type_code, data, target_descriptor_parameters
-    ):
+        cls,
+        descriptor_type_code: int,
+        data: bytearray,
+        target_descriptor_parameters: Dict[str, Any],
+    ) -> None:
         """
         Marshall the target descriptor parameters for a target descriptor.
 
@@ -648,7 +657,7 @@ class ExtendedCopy(SCSICommand):
         )
 
     @classmethod
-    def marshall_designator_descriptor(cls, data):
+    def marshall_designator_descriptor(cls, data: Dict[str, Any]) -> bytearray:
         """
         static helper method to marshall designator desciptor data
 
@@ -658,12 +667,17 @@ class ExtendedCopy(SCSICommand):
         _r = bytearray(4)
         encode_dict(data, cls._target_designator_bits, _r)
 
-        _r += Inquiry.marshall_designator(data["designator_type"], data["designator"])
+        # An unknown designator type yields None here and the += raises
+        # TypeError; cast rather than assert to keep that error.
+        _r += cast(
+            bytearray,
+            Inquiry.marshall_designator(data["designator_type"], data["designator"]),
+        )
         _r[3] = len(_r) - 4
         return _r
 
     @classmethod
-    def marshall_segment(cls, segment_dict):
+    def marshall_segment(cls, segment_dict: Dict[str, Any]) -> bytearray:
         """
         Marshall a segment descriptor
 
@@ -703,7 +717,9 @@ class ExtendedCopy(SCSICommand):
         )
 
     @classmethod
-    def encode_segment_dict(cls, data_dict, check_dict, numbytes):
+    def encode_segment_dict(
+        cls, data_dict: Dict[str, Any], check_dict: CheckDict, numbytes: int
+    ) -> bytearray:
         data_dict["descriptor_length"] = numbytes - 4
 
         valid_keys = set(check_dict.keys())
@@ -719,7 +735,7 @@ class ExtendedCopy(SCSICommand):
         return _r
 
     @classmethod
-    def get_code_int(cls, key, datadict, table):
+    def get_code_int(cls, key: str, datadict: Dict[str, Any], table: CodeTable) -> int:
         """
         Return the integer value associated with the supplied value.
         """
@@ -727,7 +743,7 @@ class ExtendedCopy(SCSICommand):
         if value is not None:
             # Is value is a key to the table (usual case)
             if value in table:
-                return value
+                return cast(int, value)
 
             # Is value is a name or description in the table
             for k, v in table.items():

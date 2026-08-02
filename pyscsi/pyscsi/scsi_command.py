@@ -9,7 +9,8 @@
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Type, cast
 
 from pyscsi.pyscsi.scsi_exception import SCSIDeviceCommandExceptionMeta as ExMETA
-from pyscsi.utils.converter import CheckDict, decode_bits, encode_dict
+from pyscsi.utils.converter import decode_bits, encode_dict
+from pyscsi.utils.typedefs import CheckDict
 
 if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode

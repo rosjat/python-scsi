@@ -9,11 +9,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
 import pyscsi.pyscsi.scsi_enum_readdiscinformation as rdi_enums
 from pyscsi.pyscsi.scsi_command import SCSICommand
+from pyscsi.utils.typedefs import CheckDict
 
 if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode
 
-from pyscsi.utils.converter import CheckDict, decode_bits, encode_dict
+from pyscsi.utils.converter import decode_bits, encode_dict
 from pyscsi.utils.table import ValueTable
 
 #
