@@ -687,7 +687,7 @@ class ExtendedCopy(SCSICommand):
             )
         elif descriptor_type_code in [0x01, 0x0C]:
             return cls.encode_segment_dict(
-                segment_dict, cls._segment_descriptor_bits_stream_block, 24
+                segment_dict, cls._segment_descriptor_bits_stream_to_block, 24
             )
         elif descriptor_type_code in [0x02, 0x0D]:
             return cls.encode_segment_dict(
