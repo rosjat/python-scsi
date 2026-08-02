@@ -6,8 +6,13 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Type, cast
+
 from pyscsi.pyscsi.scsi_exception import SCSIDeviceCommandExceptionMeta as ExMETA
 from pyscsi.utils.converter import CheckDict, decode_bits, encode_dict
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 
 class SCSICommand(metaclass=ExMETA):
@@ -16,16 +21,25 @@ class SCSICommand(metaclass=ExMETA):
     """
 
     _cdb_bits: CheckDict = {}
-    _cdb = None
-    _sense = None
-    _raw_sense_data = None
-    _datain = None
-    _dataout = None
-    _result = None
-    _page_code = None
-    _opcode = None
+    _cdb: Optional[bytearray] = None
+    _sense: Optional[bytearray] = None
+    _raw_sense_data: Optional[bytearray] = None
+    _datain: Optional[bytearray] = None
+    _dataout: Optional[bytearray] = None
+    _result: Optional[Dict[str, Any]] = None
+    _page_code: Optional[int] = None
+    _opcode: Optional["OpCode"] = None
 
-    def __init__(self, opcode, dataout_alloclen, datain_alloclen):
+    CommandNotImplemented: ClassVar[Type[Exception]]
+    MissingBlocksizeException: ClassVar[Type[Exception]]
+    OpcodeException: ClassVar[Type[Exception]]
+
+    def __init__(
+        self,
+        opcode: "OpCode",
+        dataout_alloclen: int,
+        datain_alloclen: int,
+    ) -> None:
         """
         initialize a new instance
 
@@ -40,11 +54,11 @@ class SCSICommand(metaclass=ExMETA):
         self.page_code = None
         self.opcode = opcode
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__class__.__name__
 
     @staticmethod
-    def init_cdb(opcode):
+    def init_cdb(opcode: "OpCode") -> bytearray:
         """
         init a byte array representing a command descriptor block with fixed length
         depending on the Opcode
@@ -55,7 +69,7 @@ class SCSICommand(metaclass=ExMETA):
         return bytearray(SCSICommand.cdb_length(opcode.value))
 
     @staticmethod
-    def cdb_length(opcode_value):
+    def cdb_length(opcode_value: int) -> int:
         """
         length in bytes of the command descriptor block for an operation code
 
@@ -101,16 +115,16 @@ class SCSICommand(metaclass=ExMETA):
         )
 
     @property
-    def result(self):
+    def result(self) -> Dict[str, Any]:
         """
         getter method of the result property
 
         :return: a dictionary
         """
-        return self._result
+        return cast(Dict[str, Any], self._result)
 
     @result.setter
-    def result(self, value):
+    def result(self, value: Dict[str, Any]) -> None:
         """
         setter method of the result property
 
@@ -119,16 +133,16 @@ class SCSICommand(metaclass=ExMETA):
         self._result = value
 
     @property
-    def cdb(self):
+    def cdb(self) -> bytearray:
         """
         getter method of the cdb property
 
         :return: a byte array
         """
-        return self._cdb
+        return cast(bytearray, self._cdb)
 
     @cdb.setter
-    def cdb(self, value):
+    def cdb(self, value: bytearray) -> None:
         """
         setter method of the cdb property
 
@@ -137,16 +151,16 @@ class SCSICommand(metaclass=ExMETA):
         self._cdb = value
 
     @property
-    def datain(self):
+    def datain(self) -> bytearray:
         """
         getter method of the datain property
 
         :return: a byte array
         """
-        return self._datain
+        return cast(bytearray, self._datain)
 
     @datain.setter
-    def datain(self, value):
+    def datain(self, value: bytearray) -> None:
         """
         setter method of the datain property
 
@@ -155,7 +169,7 @@ class SCSICommand(metaclass=ExMETA):
         self._datain = value
 
     @property
-    def dataout(self):
+    def dataout(self) -> Optional[bytearray]:
         """
         getter method of the dataout property
 
@@ -164,7 +178,7 @@ class SCSICommand(metaclass=ExMETA):
         return self._dataout
 
     @dataout.setter
-    def dataout(self, value):
+    def dataout(self, value: Optional[bytearray]) -> None:
         """
         setter method of the dataout property
 
@@ -173,7 +187,7 @@ class SCSICommand(metaclass=ExMETA):
         self._dataout = value
 
     @property
-    def sense(self):
+    def sense(self) -> Optional[bytearray]:
         """
         getter method of the sense property
 
@@ -182,7 +196,7 @@ class SCSICommand(metaclass=ExMETA):
         return self._sense
 
     @sense.setter
-    def sense(self, value):
+    def sense(self, value: Optional[bytearray]) -> None:
         """
         setter method of the sense property
 
@@ -191,7 +205,7 @@ class SCSICommand(metaclass=ExMETA):
         self._sense = value
 
     @property
-    def raw_sense_data(self):
+    def raw_sense_data(self) -> Optional[bytearray]:
         """
         getter method of the raw_sense_data property
 
@@ -200,7 +214,7 @@ class SCSICommand(metaclass=ExMETA):
         return self._raw_sense_data
 
     @raw_sense_data.setter
-    def raw_sense_data(self, value):
+    def raw_sense_data(self, value: Optional[bytearray]) -> None:
         """
         setter method of the raw_sense_data property
 
@@ -209,14 +223,14 @@ class SCSICommand(metaclass=ExMETA):
         self._raw_sense_data = value
 
     @property
-    def pagecode(self):
+    def pagecode(self) -> Optional[int]:
         """
         getter method of the pagecode property
         """
         return self._page_code
 
     @pagecode.setter
-    def pagecode(self, value):
+    def pagecode(self, value: Optional[int]) -> None:
         """
         setter method of the pagecode property
 
@@ -225,14 +239,14 @@ class SCSICommand(metaclass=ExMETA):
         self._page_code = value
 
     @property
-    def opcode(self):
+    def opcode(self) -> "OpCode":
         """
         getter method of the opcode property
         """
-        return self._opcode
+        return cast("OpCode", self._opcode)
 
     @opcode.setter
-    def opcode(self, value):
+    def opcode(self, value: "OpCode") -> None:
         """
         setter method of the opcode property
 
@@ -240,16 +254,16 @@ class SCSICommand(metaclass=ExMETA):
         """
         self._opcode = value
 
-    def print_cdb(self):
+    def print_cdb(self) -> None:
         """
         simple helper to print out the cdb as hex values
         """
 
-        for b in self._cdb:
+        for b in cast(bytearray, self._cdb):
             print("0x%02X " % b)
 
     @classmethod
-    def marshall_cdb(cls, cdb):
+    def marshall_cdb(cls, cdb: Dict[str, Any]) -> bytearray:
         """
         Marshall an SCSICommand cdb
 
@@ -261,18 +275,18 @@ class SCSICommand(metaclass=ExMETA):
         return result
 
     @classmethod
-    def unmarshall_cdb(cls, cdb):
+    def unmarshall_cdb(cls, cdb: bytearray) -> Dict[str, Any]:
         """
         Unmarshall an SCSICommand cdb
 
         :param cdb: a byte array representing a code descriptor block
         :return result: a dict
         """
-        result = {}
+        result: Dict[str, Any] = {}
         decode_bits(cdb, cls._cdb_bits, result)
         return result
 
-    def build_cdb(self, **kwargs):
+    def build_cdb(self, **kwargs: Any) -> bytearray:
         """
         Build a SCSICommand CDB
 
@@ -282,15 +296,16 @@ class SCSICommand(metaclass=ExMETA):
         cdb = {key: kwargs[key] for key in kwargs.keys()}
         return self.marshall_cdb(cdb)
 
-    def unmarshall(self, **kwargs):
+    def unmarshall(self, **kwargs: Any) -> None:
         """
         wrapper method for unmarshall_datain method.
 
         :param kwargs: keyword argument dict, content depends on SCSICommand subclass
         """
         try:
-            if getattr(self, "unmarshall_datain"):
-                self.result = self.unmarshall_datain(self.datain, **kwargs)
+            unmarshall_datain = getattr(self, "unmarshall_datain")
+            if unmarshall_datain:
+                self.result = unmarshall_datain(self.datain, **kwargs)
         except AttributeError:
             raise NotImplementedError(
                 "%s has no method to unmarshall datain data" % self
