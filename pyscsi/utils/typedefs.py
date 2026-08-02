@@ -6,12 +6,17 @@
 
 """Type aliases shared across the package."""
 
-from typing import Any, Dict, Mapping, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Protocol, Sequence, Union
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_command import SCSICommand
+    from pyscsi.pyscsi.scsi_opcode import OpcodeTable
 
 __all__ = [
     "CheckDict",
     "CodeTable",
     "DecodedValue",
+    "Device",
     "FieldNotation",
 ]
 
@@ -34,3 +39,23 @@ DecodedValue = Union[int, bytearray]
 # EXTENDED COPY name/description/size tables keyed by code. The mixed value
 # types would otherwise join to object, which is not indexable or sizeable.
 CodeTable = Dict[int, Dict[str, Any]]
+
+
+class Device(Protocol):
+    """What SCSI requires of a transport.
+
+    SCSIDevice and ISCSIDevice are duck-typed siblings with no common base, and
+    tests/mock_device.py stands in for both. Structural typing is what lets all
+    three satisfy this without inheriting.
+
+    open() is deliberately absent. SCSIDevice.open() takes no argument and
+    ISCSIDevice.open(device) requires one, so no caller can treat them alike --
+    and none does: open() is only ever called by a device on itself.
+    """
+
+    opcodes: "OpcodeTable"
+    devicetype: int
+
+    def execute(self, cmd: "SCSICommand", en_raw_sense: bool = False) -> None: ...
+
+    def close(self) -> None: ...

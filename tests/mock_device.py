@@ -16,6 +16,10 @@ class MockSCSI(SCSI):
 class MockDevice:
     _opcodes = None
 
+    # Never set by MockSCSI, which bypasses SCSI.__init__ and so never runs
+    # __init_opcode. Declared so the mock still satisfies utils.typedefs.Device.
+    devicetype: int = 0
+
     def __init__(self, opcodes):
         self.opcodes = opcodes
 

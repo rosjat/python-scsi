@@ -6,13 +6,15 @@ import socket
 
 from .converter import *
 from .table import *
+from .typedefs import Device
 
 
 def init_device(
-    dev,
-    read_write=False,
-    initiator_name=f"iqn.2018-01.org.pyscsi:{socket.gethostname()}",
-):
+    dev: str,
+    read_write: bool = False,
+    initiator_name: str = f"iqn.2018-01.org.pyscsi:{socket.gethostname()}",
+) -> Device:
+    device: Device
     if dev[:5] == "/dev/":
         from pyscsi.pyscsi.scsi_device import SCSIDevice
 
