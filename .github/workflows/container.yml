@@ -6,7 +6,7 @@ name: container
 
 # master only. A new image is needed when the Containerfile changes, and a
 # change is only known to be good once it is merged -- feature branches build
-# the image locally instead (containers/dev.ps1, or `podman build`).
+# the image locally instead with `podman build -f containers/Containerfile`.
 #
 # Tag builds come through container-release.yml, which calls this workflow:
 # path filters are not applied to tag pushes, so a `tags` filter here would
