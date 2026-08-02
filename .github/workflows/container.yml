@@ -4,13 +4,16 @@
 
 name: container
 
+# master only. A new image is needed when the Containerfile changes, and a
+# change is only known to be good once it is merged -- feature branches build
+# the image locally instead (containers/dev.ps1, or `podman build`).
+#
+# Tag builds come through container-release.yml, which calls this workflow:
+# path filters are not applied to tag pushes, so a `tags` filter here would
+# never match.
 on:
   push:
-    branches: ['**']
-    paths:
-      - 'containers/Containerfile'
-      - '.github/workflows/container.yml'
-  pull_request:
+    branches: [master]
     paths:
       - 'containers/Containerfile'
       - '.github/workflows/container.yml'
@@ -66,7 +69,6 @@ jobs:
       - uses: docker/setup-buildx-action@v4
 
       - name: Log in to ghcr.io
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -82,7 +84,7 @@ jobs:
             SGIO_REF=${{ steps.transports.outputs.cython_sgio }}
             ISCSI_REF=${{ steps.transports.outputs.cython_iscsi }}
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           load: true
           tags: ${{ steps.image.outputs.tags }}
           cache-from: type=gha
@@ -125,7 +127,6 @@ jobs:
       # Two passes: delete-only-untagged-versions makes the action disregard
       # ignore-versions.
       - name: Delete untagged images
-        if: github.event_name != 'pull_request'
         uses: actions/delete-package-versions@v5
         with:
           package-name: python-scsi-dev
@@ -134,7 +135,6 @@ jobs:
           min-versions-to-keep: 0
 
       - name: Delete superseded images
-        if: github.event_name != 'pull_request'
         uses: actions/delete-package-versions@v5
         with:
           package-name: python-scsi-dev

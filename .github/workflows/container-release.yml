@@ -14,7 +14,35 @@ permissions:
   contents: read
 
 jobs:
+  # A tag alone does not authorise a release image: without this, tagging any
+  # branch would publish one. Its own job because container.yml is called at
+  # job level, so no step can run ahead of it.
+  #
+  # master is hardcoded rather than read from the default branch, so a fork
+  # whose default is a working branch cannot widen it. Mirrors pypi.yml.
+  guard:
+    name: Refuse a tag that is not merged into master
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - env:
+          DEFAULT_BRANCH: master
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "+refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          if git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
+            echo "Tag $GITHUB_REF_NAME is on $DEFAULT_BRANCH; proceeding."
+          else
+            echo "::error::Tag $GITHUB_REF_NAME points at a commit that is not"\
+                 "merged into $DEFAULT_BRANCH. Refusing to build a release image."
+            exit 1
+          fi
+
   container:
+    needs: guard
     uses: ./.github/workflows/container.yml
     permissions:
       contents: read

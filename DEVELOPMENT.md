@@ -239,9 +239,17 @@ the rest of `sg3_utils`; `tgtd` and `tgtadm`; and `iscsi-ls` from `libiscsi`.
 - `test.yml` — pytest and mypy across Python 3.11 to 3.14
 - `pre-commit.yml` — the same hooks you get locally
 - `pypi.yml` — builds and publishes, on release tags only
-- `container.yml` — builds and publishes the image, only when the Containerfile
-  or the workflow changes, plus manually from the Actions tab
-- `container-release.yml` — the same on a release tag, adding a `:vX.Y.Z` image
+- `container.yml` — builds and publishes the image on **master** only, and only
+  when the Containerfile or the workflow changes, plus manually from the
+  Actions tab
+- `container-release.yml` — the same on a release tag, adding a `:vX.Y.Z`
+  image, after refusing any tag not merged into master
+
+Feature branches never build an image. Build it locally instead — that is
+faster than a round trip through CI, and it keeps a workflow holding
+`packages: write` off untrusted branches:
+
+    podman build -f containers/Containerfile -t python-scsi-dev containers/
 
 The first two run on every push and pull request.
 
