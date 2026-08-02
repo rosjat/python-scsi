@@ -6,6 +6,8 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import Any, Dict, Tuple, Type
+
 from pyscsi.pyscsi.scsi_sense import SCSICheckCondition
 
 
@@ -14,7 +16,12 @@ class SCSICommandExceptionMeta(type):
     A meta class for class depending SCSICommand exceptions
     """
 
-    def __new__(mcs, cls, bases, attributes):
+    def __new__(
+        mcs,
+        cls: str,
+        bases: Tuple[type, ...],
+        attributes: Dict[str, Any],
+    ) -> type:
         class CommandNotImplemented(Exception):
             pass
 
@@ -36,7 +43,12 @@ class SCSIDeviceExceptionMeta(type):
     A meta class for class depending SCSICommand exceptions
     """
 
-    def __new__(mcs, cls, bases, attributes):
+    def __new__(
+        mcs,
+        cls: str,
+        bases: Tuple[type, ...],
+        attributes: Dict[str, Any],
+    ) -> type:
         class CheckCondition(SCSICheckCondition):
             pass
 
@@ -70,11 +82,21 @@ class SCSIDeviceExceptionMeta(type):
 
 
 class SCSIDeviceCommandExceptionMeta(SCSICommandExceptionMeta, SCSIDeviceExceptionMeta):
-    def __init__(cls, name, bases, attr):
+    def __init__(
+        cls,
+        name: str,
+        bases: Tuple[type, ...],
+        attr: Dict[str, Any],
+    ) -> None:
         SCSICommandExceptionMeta.__init__(cls, name, bases, attr)
         SCSIDeviceExceptionMeta.__init__(cls, name, bases, attr)
 
-    def __new__(mcs, name, bases, attr):
+    def __new__(
+        mcs,
+        name: str,
+        bases: Tuple[type, ...],
+        attr: Dict[str, Any],
+    ) -> type:
         t1 = SCSICommandExceptionMeta.__new__(mcs, name, bases, attr)
         name = t1.__name__
         bases = tuple(t1.mro())
