@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2021 by Ronnie Sahlberg<ronniesahlberg@gmail.com>
-# SPDX-FileCopyrightText: 2021 The python-scsi Authors
+# SPDX-FileCopyrightText: 2021-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
