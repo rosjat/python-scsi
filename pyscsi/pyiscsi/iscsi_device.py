@@ -5,8 +5,13 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from types import TracebackType
+from typing import Any, ClassVar, Optional, Type
+
 import pyscsi.pyscsi.scsi_enum_command as scsi_enum_command
+from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_exception import SCSIDeviceCommandExceptionMeta as ExMETA
+from pyscsi.pyscsi.scsi_opcode import OpcodeTable
 
 try:
     import iscsi
@@ -36,27 +41,41 @@ class ISCSIDevice(metaclass=ExMETA):
     Note: The workflow above is already implemented in the SCSI class
     """
 
-    def __init__(self, device, initiator_name=""):
+    ACAActive: ClassVar[Type[Exception]]
+    BusyStatus: ClassVar[Type[Exception]]
+    CheckCondition: ClassVar[Type[Exception]]
+    ConditionsMet: ClassVar[Type[Exception]]
+    ReservationConflict: ClassVar[Type[Exception]]
+    TaskAborted: ClassVar[Type[Exception]]
+    TaskSetFull: ClassVar[Type[Exception]]
+
+    def __init__(self, device: str, initiator_name: str = "") -> None:
         """
         initialize a  new instance of a ISCSIDevice
 
         :param device: a url string
         :param initiator_name: an initiator_name string
         """
-        self._opcodes = scsi_enum_command.spc
+        self._opcodes: OpcodeTable = scsi_enum_command.spc
         self._file_name = device
-        self._iscsi = None
-        self._iscsi_url = None
+        self._iscsi: Any = None
+        self._iscsi_url: Any = None
+        self._devicetype: int
         self._initiator_name = initiator_name
         if _has_iscsi and device[:8] == "iscsi://":
             self.open(device)
         else:
             raise NotImplementedError("No backend implemented for %s" % device)
 
-    def __enter__(self):
+    def __enter__(self) -> "ISCSIDevice":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         """
 
         :param exc_type:
@@ -67,7 +86,7 @@ class ISCSIDevice(metaclass=ExMETA):
         # we may need to do more teardown here ?
         self.close()
 
-    def open(self, device):
+    def open(self, device: str) -> None:
         if len(self._initiator_name):
             self._iscsi = iscsi.Context(self._initiator_name)
         else:
@@ -80,10 +99,10 @@ class ISCSIDevice(metaclass=ExMETA):
         )
         self._iscsi.connect(self._iscsi_url.portal, self._iscsi_url.lun)
 
-    def close(self):
+    def close(self) -> None:
         self._iscsi.disconnect()
 
-    def execute(self, cmd, en_raw_sense=False):
+    def execute(self, cmd: SCSICommand, en_raw_sense: bool = False) -> None:
         """
         execute a scsi command
         :param cmd: a scsi command
@@ -128,17 +147,17 @@ class ISCSIDevice(metaclass=ExMETA):
         raise RuntimeError
 
     @property
-    def opcodes(self):
+    def opcodes(self) -> OpcodeTable:
         return self._opcodes
 
     @opcodes.setter
-    def opcodes(self, value):
+    def opcodes(self, value: OpcodeTable) -> None:
         self._opcodes = value
 
     @property
-    def devicetype(self):
+    def devicetype(self) -> int:
         return self._devicetype
 
     @devicetype.setter
-    def devicetype(self, value):
+    def devicetype(self, value: int) -> None:
         self._devicetype = value
