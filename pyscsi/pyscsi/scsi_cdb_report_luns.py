@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2016 by Markus Rosjat<markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -25,7 +25,7 @@ from pyscsi.utils.converter import (
 #
 
 
-class ReportLuns(SCSICommand):
+class ReportLuns(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a ReportLuns command to a scsi device
     """

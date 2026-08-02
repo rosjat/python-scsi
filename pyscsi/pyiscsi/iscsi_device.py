@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2018 by Markus Rosjat<markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -108,7 +108,7 @@ class ISCSIDevice(metaclass=ExMETA):
     def close(self) -> None:
         self._iscsi.disconnect()
 
-    def execute(self, cmd: SCSICommand, en_raw_sense: bool = False) -> None:
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         """
         execute a scsi command
         :param cmd: a scsi command

@@ -2,7 +2,7 @@
 
 # Copyright (C) 2015 by Markus Rosjat<markus.rosjat@gmail.com>
 # Copyright (C) 2023 by Brian Meagher<brian.meagher@ixsystems.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -46,7 +46,7 @@ __all__ = [
 ]
 
 
-class PersistentReserveIn(SCSICommand):
+class PersistentReserveIn(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a PersistentReserveIn command to a scsi device
     """

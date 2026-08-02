@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2023 by Brian Meagher<brian.meagher@ixsystems.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 #
 
 
-class ExtendedCopy(SCSICommand):
+class ExtendedCopy(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a SPC-5 ExtendedCopy command to a scsi device
     """

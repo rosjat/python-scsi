@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Brian Meagher<brian.meagher@truenas.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -22,7 +22,7 @@ from pyscsi.utils.converter import scsi_int_to_ba
 #
 
 
-class Unmap(SCSICommand):
+class Unmap(SCSICommand[Dict[str, Any]]):
     """
     A class to send an UNMAP command to a scsi device
     """

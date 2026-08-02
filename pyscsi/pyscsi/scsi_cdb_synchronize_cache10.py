@@ -1,11 +1,11 @@
 # coding: utf-8
 
 # Copyright (C) 2024 by Brian Meagher<brian.meagher@ixsystems.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 from pyscsi.pyscsi.scsi_command import SCSICommand
 
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 #
 
 
-class SynchronizeCache10(SCSICommand):
+class SynchronizeCache10(SCSICommand[Dict[str, Any]]):
     """
     A class to send a Synchronize Cache (10) command to a scsi device
     """

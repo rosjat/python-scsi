@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2014 by Ronnie Sahlberg<ronniesahlberg@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -20,7 +20,7 @@ from pyscsi.utils.converter import decode_bits, encode_dict
 #
 
 
-class ReadCapacity16(SCSICommand):
+class ReadCapacity16(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a ReadCapacity(16) command to a scsi device
     """

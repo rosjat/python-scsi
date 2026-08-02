@@ -1,11 +1,11 @@
 # coding: utf-8
 
 # Copyright (C) 2021 by Ronnie Sahlberg<ronniesahlberg@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, cast
 
 import pyscsi.utils.converter as convert
 from pyscsi.pyscsi.scsi_command import SCSICommand
@@ -20,7 +20,7 @@ from pyscsi.pyscsi.scsi_enum_readcd import EXPECTED_SECTOR_TYPE
 #
 
 
-class ReadCd(SCSICommand):
+class ReadCd(SCSICommand[Dict[int, Dict[str, Any]]]):
     """
     A class to hold information from a ReadCd command to a scsi device
     """

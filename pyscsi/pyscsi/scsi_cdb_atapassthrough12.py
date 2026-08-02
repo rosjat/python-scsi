@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2022 by Erick <Eric-1128@outlook.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 #
 
 
-class ATAPassThrough12(SCSICommand):
+class ATAPassThrough12(SCSICommand[Dict[str, Any]]):
     """
     A class to send a ATAPassThrough12 command to a ata device
     """

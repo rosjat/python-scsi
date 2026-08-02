@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2014 by Ronnie Sahlberg<ronniesahlberg@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -25,7 +25,7 @@ from pyscsi.utils.converter import (
 #
 
 
-class GetLBAStatus(SCSICommand):
+class GetLBAStatus(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a GetLBAStatus command to a scsi device
     """

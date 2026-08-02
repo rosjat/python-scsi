@@ -1,16 +1,17 @@
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 # coding: utf-8
 
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from pyscsi.pyscsi.scsi_command import SCSICommand
 
 if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode
+
 from pyscsi.utils.converter import decode_bits, encode_dict
 
 #
@@ -18,7 +19,7 @@ from pyscsi.utils.converter import decode_bits, encode_dict
 #
 
 
-class WriteSame16(SCSICommand):
+class WriteSame16(SCSICommand[Dict[str, Any]]):
     """
     A class to send a WriteSame(16) command to a scsi device
     """

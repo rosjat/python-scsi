@@ -2,7 +2,7 @@
 
 # Copyright (C) 2015 by Markus Rosjat<markus.rosjat@gmail.com>
 # Copyright (C) 2015 by Ronnie Sahlberg<ronniesahlberg@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -28,7 +28,7 @@ from pyscsi.utils.table import BitsTable, ValueTable
 #
 
 
-class ModeSense10(SCSICommand):
+class ModeSense10(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a modesense10 command
     """
@@ -168,7 +168,7 @@ class ModeSense10(SCSICommand):
         return result
 
 
-class ModeSelect10(SCSICommand):
+class ModeSelect10(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a ModeSelect10 command
     """

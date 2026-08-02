@@ -2,11 +2,21 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg<ronniesahlberg@gmail.com>
 # Copyright (C) 2016 by Markus Rosjat<markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Type, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    Generic,
+    Optional,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from pyscsi.pyscsi.scsi_exception import SCSIDeviceCommandExceptionMeta as ExMETA
 from pyscsi.utils.converter import decode_bits, encode_dict
@@ -16,7 +26,14 @@ if TYPE_CHECKING:
     from pyscsi.pyscsi.scsi_opcode import OpCode
 
 
-class SCSICommand(metaclass=ExMETA):
+# The shape of `result` is per command: almost all key it by field name, but
+# READ CD returns one entry per sector and keys by LBA. A single declared type
+# cannot describe both -- dict is invariant in its key, so no Union works in
+# either direction -- so the base is generic and each command binds its own.
+ResultT = TypeVar("ResultT")
+
+
+class SCSICommand(Generic[ResultT], metaclass=ExMETA):
     """
     The base class for a derived scsi command class
     """
@@ -27,7 +44,7 @@ class SCSICommand(metaclass=ExMETA):
     _raw_sense_data: Optional[bytearray] = None
     _datain: Optional[bytearray] = None
     _dataout: Optional[bytearray] = None
-    _result: Optional[Dict[str, Any]] = None
+    _result: Optional[ResultT] = None
     _page_code: Optional[int] = None
     _opcode: Optional["OpCode"] = None
 
@@ -61,7 +78,9 @@ class SCSICommand(metaclass=ExMETA):
         self._cdb = SCSICommand.init_cdb(opcode)
         self.dataout = bytearray(dataout_alloclen)
         self.datain = bytearray(datain_alloclen)
-        self.result = {}
+        # Every command binds ResultT to a dict type, so an empty one is the
+        # right initial value; the base cannot prove that for an arbitrary bind.
+        self.result = cast(ResultT, {})
         self.page_code = None
         self.opcode = opcode
 
@@ -126,16 +145,16 @@ class SCSICommand(metaclass=ExMETA):
         )
 
     @property
-    def result(self) -> Dict[str, Any]:
+    def result(self) -> ResultT:
         """
         getter method of the result property
 
         :return: a dictionary
         """
-        return cast(Dict[str, Any], self._result)
+        return cast(ResultT, self._result)
 
     @result.setter
-    def result(self, value: Dict[str, Any]) -> None:
+    def result(self, value: ResultT) -> None:
         """
         setter method of the result property
 

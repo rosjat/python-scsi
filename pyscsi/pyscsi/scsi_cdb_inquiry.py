@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2014 by Ronnie Sahlberg<ronniesahlberg@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 #
 
 
-class Inquiry(SCSICommand):
+class Inquiry(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a inquiry command to a scsi device
     """

@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2014 by Ronnie Sahlberg<ronniesahlberg@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -22,7 +22,7 @@ from pyscsi.utils.table import BitsTable, ValueTable
 #
 
 
-class ModeSense6(SCSICommand):
+class ModeSense6(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a modesense6 command
     """
@@ -158,7 +158,7 @@ class ModeSense6(SCSICommand):
         return result
 
 
-class ModeSelect6(SCSICommand):
+class ModeSelect6(SCSICommand[Dict[str, Any]]):
     """
     A class to hold information from a modeselect6 command
     """
