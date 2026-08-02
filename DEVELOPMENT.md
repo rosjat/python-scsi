@@ -121,6 +121,35 @@ Arguments are passed through to pytest.
     podman run --rm -v "$PWD:/src:z" python-scsi-dev pyscsi-matrix -q
     podman run --rm -v "$PWD:/src:z" python-scsi-dev pyscsi-matrix -k inquiry
 
+### The whole battery, with a transcript
+
+`pyscsi-report` runs everything — pytest and mypy on all four runtimes,
+pre-commit, the sdist/wheel build, and the emulated iSCSI targets — and writes a
+transcript while echoing it. It exits non-zero if any stage failed, so it works
+in a pipeline as well as by eye.
+
+    podman run --rm -v "$PWD:/src:z" python-scsi-dev pyscsi-report
+
+| Flag | Effect |
+|---|---|
+| `--out PATH` | where to write (default `$PYSCSI_SRC/VERIFICATION.txt`) |
+| `--device /dev/sgN` | also verify against a real device |
+| `--no-iscsi` | skip the emulated targets |
+| `--no-build` | skip the sdist/wheel build |
+
+Adding a device needs the same privileges as `pyscsi-verify-tools`:
+
+    podman run --rm -v "$PWD:/src:z" \
+        --device /dev/sg0 --cap-add=SYS_RAWIO \
+        python-scsi-dev pyscsi-report --device /dev/sg0
+
+The default output path is in `.gitignore`, which is what keeps the `reuse` hook
+from failing on it — a bare SPDX header in a `.txt` does not satisfy that hook.
+Writing the transcript somewhere tracked will fail your next lint.
+
+Git history is deliberately not covered. It belongs to the host, and a summary
+of the branch is a `git log` away.
+
 ### Everyday commands
 
 Each mounts the repository at `/src`:
@@ -133,6 +162,7 @@ Each mounts the repository at `/src`:
 | lint | `podman run --rm -v "$PWD:/src:z" python-scsi-dev pre-commit run --all-files` |
 | shell | `podman run --rm -it -v "$PWD:/src:z" python-scsi-dev bash` |
 | build sdist+wheel | `podman run --rm -v "$PWD:/src:z" python-scsi-dev python -m build` |
+| everything, with a transcript | `podman run --rm -v "$PWD:/src:z" python-scsi-dev pyscsi-report` |
 
 On Windows `$PWD` becomes the drive-lettered path with forward slashes, for
 example `-v "D:/Projekte/python-scsi:/src:z"`. The `:z` suffix is an SELinux

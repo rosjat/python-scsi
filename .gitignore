@@ -27,3 +27,7 @@ __pycache__/
 /.coverage
 /.coverage.*
 /htmlcov/
+
+# Verification transcripts written by pyscsi-report.
+VERIFICATION.txt
+REPORT-*.txt

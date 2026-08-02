@@ -362,6 +362,113 @@ summarise
 [ "$fail" -eq 0 ]
 VISCSI
 
+RUN cat > /usr/local/bin/pyscsi-report <<'FULL' && chmod +x /usr/local/bin/pyscsi-report
+#!/bin/bash
+set -u
+
+OUT="${PYSCSI_SRC:-/src}/VERIFICATION.txt"
+DEVICE=""
+want_iscsi=1
+want_build=1
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --out)       OUT="${2:?--out needs a path}"; shift 2 ;;
+        --device)    DEVICE="${2:?--device needs /dev/sgN}"; shift 2 ;;
+        --no-iscsi)  want_iscsi=0; shift ;;
+        --no-build)  want_build=0; shift ;;
+        -h|--help)
+            cat <<'USAGE'
+usage: pyscsi-report [--out PATH] [--device /dev/sgN] [--no-iscsi] [--no-build]
+
+Runs the whole battery -- pytest and mypy on every runtime, pre-commit, the
+sdist/wheel build, and the emulated iSCSI targets -- and writes a transcript
+while echoing it. Exits non-zero if any stage failed.
+
+  --out PATH     where to write (default $PYSCSI_SRC/VERIFICATION.txt)
+  --device DEV   also verify against a real device; needs --privileged and
+                 -v /dev:/dev on the run
+  --no-iscsi     skip the emulated targets
+  --no-build     skip the sdist/wheel build
+
+Git history is deliberately not covered: it belongs to the host, not the
+container.
+USAGE
+            exit 0 ;;
+        *) echo "pyscsi-report: unknown argument '$1'" >&2; exit 2 ;;
+    esac
+done
+
+cd "${PYSCSI_SRC:-/src}"
+
+# The default path is in .gitignore, which is also what keeps reuse from
+# failing on it -- a bare SPDX header in a .txt does not satisfy the hook.
+# Pass --out somewhere ignored, or outside the work tree, or lint will fail.
+
+run_all() {
+    echo "python-scsi verification"
+    echo "run:      $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+    echo "version:  $(python -c 'from importlib.metadata import version; print(version("PYSCSI"))' 2>/dev/null || echo unknown)"
+    echo "runtimes: ${PYSCSI_VERSIONS:-3.11 3.12 3.13 3.14}"
+    echo "device:   ${DEVICE:-none}"
+
+    . /usr/local/lib/pyscsi-report.sh
+
+    for v in ${PYSCSI_VERSIONS:-3.11 3.12 3.13 3.14}; do
+        py="/opt/venv/$v/bin/python"
+        if [ ! -x "$py" ]; then
+            skip_one "python $v" "no runtime"
+            continue
+        fi
+        run_one "pytest $v ($("$py" -V 2>&1))" "$py" -m pytest -q
+        # --python-version retargets the analysis; python_version in
+        # pyproject.toml otherwise pins every run to the floor.
+        # --python-executable resolves that runtime's own packages.
+        run_one "mypy $v" mypy --python-version "$v" --python-executable "$py"
+    done
+
+    run_one "pre-commit (all files)" pre-commit run --all-files
+
+    if [ "$want_build" -eq 1 ]; then
+        # Built from a copy: setuptools drops build/ and *.egg-info next to the
+        # sources whatever --outdir says, and the work tree is a mount.
+        run_one "sdist + wheel" bash -c '
+            set -eu
+            rm -rf /tmp/buildsrc /tmp/dist
+            cp -r "${PYSCSI_SRC:-/src}" /tmp/buildsrc
+            cd /tmp/buildsrc
+            python -m build --outdir /tmp/dist
+            ls -1 /tmp/dist'
+    else
+        skip_one "sdist + wheel" "--no-build"
+    fi
+
+    if [ "$want_iscsi" -eq 1 ]; then
+        run_one "iSCSI: disk, changer, tape, cd" pyscsi-verify-iscsi
+    else
+        skip_one "iSCSI" "--no-iscsi"
+    fi
+
+    if [ -n "$DEVICE" ]; then
+        run_one "device $DEVICE" pyscsi-verify-tools "$DEVICE"
+    else
+        skip_one "real device" "no --device given"
+    fi
+
+    summarise "verification"
+    echo
+    echo "  transcript: $OUT"
+
+    [ "$fail" -eq 0 ]
+}
+
+# A pipe, not `exec > >(tee ...)`: bash does not wait for a process
+# substitution, so the container can tear down before tee flushes and the
+# transcript loses its tail. PIPESTATUS keeps this script's own exit code.
+run_all 2>&1 | tee "$OUT"
+exit "${PIPESTATUS[0]}"
+FULL
+
 WORKDIR /src
 
 CMD ["pytest", "-vv"]

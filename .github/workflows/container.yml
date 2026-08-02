@@ -105,8 +105,16 @@ jobs:
             done'
 
           echo "--- harness commands are on PATH ---"
-          docker run --rm "$IMAGE" \
-            bash -c 'command -v pyscsi-tgt-setup pyscsi-verify-tools pyscsi-verify-iscsi'
+          docker run --rm "$IMAGE" bash -c \
+            'command -v pyscsi-matrix pyscsi-report pyscsi-tgt-setup \
+                        pyscsi-verify-tools pyscsi-verify-iscsi'
+
+          echo "--- pyscsi-report parses its flags and rejects unknown ones ---"
+          docker run --rm "$IMAGE" pyscsi-report --help
+          if docker run --rm "$IMAGE" pyscsi-report --not-a-flag; then
+            echo "::error::pyscsi-report accepted an unknown flag"
+            exit 1
+          fi
 
           echo "--- emulated targets come up with no repository mounted ---"
           docker run --rm "$IMAGE" pyscsi-tgt-setup
