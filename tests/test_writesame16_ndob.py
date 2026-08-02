@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -20,7 +20,7 @@ from pyscsi.pyscsi.scsi_enum_command import sbc
 
 
 class WriteSame16Ndob(unittest.TestCase):
-    def test_ndob_leaves_no_dataout(self):
+    def test_ndob_leaves_no_dataout(self) -> None:
         cmd = WriteSame16(
             sbc.WRITE_SAME_16, blocksize=0, lba=0, nb=1, data=None, ndob=1
         )
@@ -28,7 +28,7 @@ class WriteSame16Ndob(unittest.TestCase):
         d = cmd.unmarshall_cdb(cmd.cdb)
         self.assertEqual(d["ndob"], 1)
 
-    def test_without_ndob_there_is_a_dataout_buffer(self):
+    def test_without_ndob_there_is_a_dataout_buffer(self) -> None:
         cmd = WriteSame16(
             sbc.WRITE_SAME_16,
             blocksize=512,
@@ -37,11 +37,12 @@ class WriteSame16Ndob(unittest.TestCase):
             data=bytearray(512),
             ndob=0,
         )
+        assert cmd.dataout is not None
         self.assertEqual(len(cmd.dataout), 512)
         d = cmd.unmarshall_cdb(cmd.cdb)
         self.assertEqual(d["ndob"], 0)
 
-    def test_a_none_dataout_is_falsy_not_an_error(self):
+    def test_a_none_dataout_is_falsy_not_an_error(self) -> None:
         """
         ISCSIDevice.execute sizes the transfer from the buffers. It used to ask
         len(cmd.dataout), which raises on the NDOB command; a truth test gives
@@ -52,7 +53,8 @@ class WriteSame16Ndob(unittest.TestCase):
         )
         self.assertFalse(cmd.dataout)
         with self.assertRaises(TypeError):
-            len(cmd.dataout)
+            # The TypeError is what this asserts, so the bad argument stands.
+            len(cmd.dataout)  # type: ignore[arg-type]
 
         empty = bytearray(0)
         self.assertEqual(bool(empty), bool(len(empty)))

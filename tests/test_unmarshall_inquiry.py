@@ -2,21 +2,23 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import unittest
+from typing import Any
 
 from pyscsi.pyscsi import scsi_enum_inquiry as INQUIRY
 from pyscsi.pyscsi.scsi_cdb_inquiry import Inquiry
+from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_enum_command import sbc
 from pyscsi.utils.converter import scsi_int_to_ba
 from tests.mock_device import MockDevice, MockSCSI
 
 
 class MockInquiryStandard(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         cmd.datain[0] = 0x25  # QUAL:1 TYPE:5
         cmd.datain[1] = 0x80  # RMB:1
         cmd.datain[2] = 0x07  # VERSION:7
@@ -57,7 +59,7 @@ class MockInquiryStandard(MockDevice):
 
 
 class MockLBP(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         cmd.datain[0] = 0x00  # QUAL:0 TYPE:0
         cmd.datain[1] = 0xB2  # logical block provisioning
         cmd.datain[2] = 0x00  #
@@ -69,7 +71,7 @@ class MockLBP(MockDevice):
 
 
 class MockUSN(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         cmd.datain[0] = 0x00  # QUAL:0 TYPE:0
         cmd.datain[1] = 0x80  # unit serial number
         cmd.datain[2] = 0x00  #
@@ -78,7 +80,7 @@ class MockUSN(MockDevice):
 
 
 class MockDevId(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         cmd.datain[0] = 0x00  # QUAL:0 TYPE:0
         cmd.datain[1] = 0x83  # device identifier
         cmd.datain[2] = 0x00
@@ -127,7 +129,7 @@ class MockDevId(MockDevice):
 
 
 class MockReferrals(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         cmd.datain[0] = 0x00  # QUAL:0 TYPE:0
         cmd.datain[1] = 0xB3  # referrals
         cmd.datain[2] = 0x00  #
@@ -137,7 +139,7 @@ class MockReferrals(MockDevice):
 
 
 class MockExtendedInquiry(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         cmd.datain[0] = 0x00  # QUAL:0 TYPE:0
         cmd.datain[1] = 0x86  # extended inquiry
         cmd.datain[2] = 0x00  #
@@ -156,7 +158,7 @@ class MockExtendedInquiry(MockDevice):
 
 
 class UnmarshallInquiryTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockInquiryStandard(sbc)) as s:
             cmd = s.inquiry()
             i = cmd.result

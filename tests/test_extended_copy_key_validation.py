@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -13,6 +13,7 @@ offending one in the error.
 """
 
 import unittest
+from typing import Any, Dict
 
 from pyscsi.pyscsi.scsi_cdb_extended_copy_spc4 import ExtendedCopy as ExtendedCopySpc4
 from pyscsi.pyscsi.scsi_cdb_extended_copy_spc5 import ExtendedCopy as ExtendedCopySpc5
@@ -27,7 +28,7 @@ CASES = (
 )
 
 
-def block_to_block_segment(kind):
+def block_to_block_segment(kind: str) -> Dict[str, Any]:
     return {
         "descriptor_type_code": 0x02,
         "source_%s_descriptor_id" % kind: 0,
@@ -39,13 +40,13 @@ def block_to_block_segment(kind):
 
 
 class SegmentKeyValidation(unittest.TestCase):
-    def test_valid_segment_marshalls(self):
+    def test_valid_segment_marshalls(self) -> None:
         for cls, kind in CASES:
             with self.subTest(spc=cls.__module__[-4:]):
                 out = cls.marshall_segment(block_to_block_segment(kind))
                 self.assertEqual(len(out), 28)
 
-    def test_unknown_key_is_rejected(self):
+    def test_unknown_key_is_rejected(self) -> None:
         for cls, kind in CASES:
             with self.subTest(spc=cls.__module__[-4:]):
                 segment = block_to_block_segment(kind)
@@ -53,7 +54,7 @@ class SegmentKeyValidation(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     cls.marshall_segment(segment)
 
-    def test_the_rejected_key_is_named(self):
+    def test_the_rejected_key_is_named(self) -> None:
         """The message must identify the key that is actually invalid."""
         for cls, kind in CASES:
             segment = block_to_block_segment(kind)

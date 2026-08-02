@@ -1,11 +1,12 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import unittest
+from typing import List
 
 from pyscsi.pyscsi.scsi_cdb_report_luns import ReportLuns
 from pyscsi.utils.converter import scsi_ba_to_int, scsi_int_to_ba
@@ -23,7 +24,7 @@ from pyscsi.utils.converter import scsi_ba_to_int, scsi_int_to_ba
 # So the field counts only the list, not the 8-byte header.
 
 
-def conformant_parameter_data(luns):
+def conformant_parameter_data(luns: List[int]) -> bytearray:
     """Build REPORT LUNS parameter data exactly as a device would return it."""
     data = bytearray(8)
     for lun in luns:
@@ -39,7 +40,7 @@ class ReportLunsRoundTrip(unittest.TestCase):
     cancel out, which is why they went unnoticed.
     """
 
-    def test_lun_values_survive_a_round_trip(self):
+    def test_lun_values_survive_a_round_trip(self) -> None:
         for count in (1, 2, 3):
             with self.subTest(luns=count):
                 source = {"luns": [{"lun": n} for n in range(count)]}
@@ -50,7 +51,7 @@ class ReportLunsRoundTrip(unittest.TestCase):
                 for n in range(count):
                     self.assertEqual(result["luns"][n]["lun%d" % n], n)
 
-    def test_unmarshall_renames_lun_to_lun_n(self):
+    def test_unmarshall_renames_lun_to_lun_n(self) -> None:
         """
         marshall_datain reads 'lun'; unmarshall_datain emits 'lun0', 'lun1'.
         Pinning the asymmetry rather than judging it -- the source comment
@@ -68,11 +69,11 @@ class ReportLunsSpecConformance(unittest.TestCase):
     Against buffers built to table 149, i.e. what a real device sends.
     """
 
-    def test_empty_list(self):
+    def test_empty_list(self) -> None:
         result = ReportLuns.unmarshall_datain(conformant_parameter_data([]))
         self.assertEqual(result["luns"], [])
 
-    def test_lun_count_is_right(self):
+    def test_lun_count_is_right(self) -> None:
         """The number of entries is correct; only the last value is wrong."""
         for count in (1, 2, 3):
             with self.subTest(luns=count):
@@ -80,19 +81,19 @@ class ReportLunsSpecConformance(unittest.TestCase):
                 result = ReportLuns.unmarshall_datain(data)
                 self.assertEqual(len(result["luns"]), count)
 
-    def test_last_lun_is_decoded_from_all_eight_bytes(self):
+    def test_last_lun_is_decoded_from_all_eight_bytes(self) -> None:
         # One LUN, deliberately non-zero: the single-LUN case is affected too.
         result = ReportLuns.unmarshall_datain(conformant_parameter_data([5]))
         self.assertEqual(result["luns"][0]["lun0"], 5)
 
-    def test_every_lun_of_a_conformant_buffer_is_decoded(self):
+    def test_every_lun_of_a_conformant_buffer_is_decoded(self) -> None:
         data = conformant_parameter_data([0x01, 0x02, 0x03])
         result = ReportLuns.unmarshall_datain(data)
         self.assertEqual(
             [list(e.values())[0] for e in result["luns"]], [0x01, 0x02, 0x03]
         )
 
-    def test_lun_list_length_counts_only_the_list(self):
+    def test_lun_list_length_counts_only_the_list(self) -> None:
         # An empty inventory must report 0; SELECT REPORT 00h in table 148 says
         # "If there are no logical units, the LUN LIST LENGTH field shall be
         # zero."

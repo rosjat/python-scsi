@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -35,7 +35,7 @@ DEVICE_RESPONSE = bytearray.fromhex(
 
 
 class ReportTargetPortGroupsDatain(unittest.TestCase):
-    def test_matches_the_device(self):
+    def test_matches_the_device(self) -> None:
         self.assertEqual(scsi_ba_to_int(DEVICE_RESPONSE[:4]), 24)
 
         r = ReportTargetPortGroups.unmarshall_datain(DEVICE_RESPONSE)
@@ -52,7 +52,7 @@ class ReportTargetPortGroupsDatain(unittest.TestCase):
         self.assertEqual(groups[1]["target_port_count"], 1)
         self.assertEqual(groups[1]["target_ports"][0]["relative_target_port_id"], 2)
 
-    def test_support_bits(self):
+    def test_support_bits(self) -> None:
         r = ReportTargetPortGroups.unmarshall_datain(DEVICE_RESPONSE)
         groups = r["target_port_group_descriptors"]
         # byte 1 of the first descriptor is 0x01 -> AO_SUP only
@@ -64,7 +64,7 @@ class ReportTargetPortGroupsDatain(unittest.TestCase):
 
 
 class ReportTargetPortGroupsMarshall(unittest.TestCase):
-    def test_round_trip_of_the_device_response(self):
+    def test_round_trip_of_the_device_response(self) -> None:
         parsed = ReportTargetPortGroups.unmarshall_datain(DEVICE_RESPONSE)
         self.assertEqual(
             ReportTargetPortGroups.marshall_datain(parsed), DEVICE_RESPONSE

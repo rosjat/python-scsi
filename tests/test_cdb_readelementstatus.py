@@ -2,7 +2,7 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -16,7 +16,7 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbReadelementstatusTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(smc)) as s:
             # cdb for SMC: ReadElementStatus
             r = s.readelementstatus(
@@ -27,14 +27,14 @@ class CdbReadelementstatusTest(unittest.TestCase):
                 curdata=1,
                 dvcid=1,
             )
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.READ_ELEMENT_STATUS.value)
-            self.assertEqual(cdb[1], 0x10 | READELEMENTSTATUS.ELEMENT_TYPE.STORAGE)
-            self.assertEqual(scsi_ba_to_int(cdb[2:4]), 300)
-            self.assertEqual(scsi_ba_to_int(cdb[4:6]), 700)
-            self.assertEqual(cdb[6], 0x03)
-            self.assertEqual(scsi_ba_to_int(cdb[7:10]), 16384)
-            cdb = r.unmarshall_cdb(cdb)
+            raw_cdb = r.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.READ_ELEMENT_STATUS.value)
+            self.assertEqual(raw_cdb[1], 0x10 | READELEMENTSTATUS.ELEMENT_TYPE.STORAGE)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[2:4]), 300)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[4:6]), 700)
+            self.assertEqual(raw_cdb[6], 0x03)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:10]), 16384)
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.READ_ELEMENT_STATUS.value)
             self.assertEqual(cdb["voltag"], 1)
             self.assertEqual(

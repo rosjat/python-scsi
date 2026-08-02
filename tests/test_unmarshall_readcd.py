@@ -2,13 +2,15 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import unittest
+from typing import Any
 
 from pyscsi.pyscsi.scsi_cdb_readcd import ReadCd
+from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_enum_command import mmc
 from tests.mock_device import MockDevice, MockSCSI
 
@@ -19,7 +21,7 @@ _SYNC = bytes([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 # Mock for a read of two sectors for SYNC and SubChannel type 2
 #
 class MockReadCD_SyncSubC(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         # sync
         cmd.datain[0:12] = _SYNC
         # subchannel
@@ -69,7 +71,7 @@ class MockReadCD_SyncSubC(MockDevice):
 # Mock for a read of two sectors for SYNC and SectorHeader
 #
 class MockReadCD_SyncSH(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         # sync
         cmd.datain[0:12] = _SYNC
         # subchannel
@@ -82,7 +84,7 @@ class MockReadCD_SyncSH(MockDevice):
 
 
 class UnmarshallReadCdTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         # SYNC and SubChannel
         with MockSCSI(MockReadCD_SyncSubC(mmc)) as s:
             i = s.readcd(lba=640, tl=2, est=2, mcsb=0x10, scsb=2, c2ei=0).result

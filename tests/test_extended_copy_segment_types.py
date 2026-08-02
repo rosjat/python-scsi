@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -15,6 +15,7 @@ AttributeError instead of building a descriptor.
 """
 
 import unittest
+from typing import Any, Dict, Iterator, Tuple
 
 from pyscsi.pyscsi.scsi_cdb_extended_copy_spc4 import ExtendedCopy as ExtendedCopySpc4
 from pyscsi.pyscsi.scsi_cdb_extended_copy_spc5 import ExtendedCopy as ExtendedCopySpc5
@@ -51,13 +52,17 @@ BLOCK_TO_BLOCK = (0x02, 0x0D)
 
 
 class SegmentDescriptorTypes(unittest.TestCase):
-    def _cases(self, cls, ids, block_extra):
+    def _cases(
+        self, cls: Any, ids: Dict[str, int], block_extra: Dict[str, int]
+    ) -> Iterator[Tuple[int, Dict[str, int], int]]:
         for code in BLOCK_TO_STREAM + STREAM_TO_BLOCK:
             yield code, dict(ids, **STREAM_FIELDS), 24
         for code in BLOCK_TO_BLOCK:
             yield code, dict(ids, **block_extra), 28
 
-    def _check(self, cls, ids, block_extra):
+    def _check(
+        self, cls: Any, ids: Dict[str, int], block_extra: Dict[str, int]
+    ) -> None:
         for code, fields, length in self._cases(cls, ids, block_extra):
             with self.subTest(code=hex(code)):
                 seg = dict(fields, descriptor_type_code=code)
@@ -67,14 +72,14 @@ class SegmentDescriptorTypes(unittest.TestCase):
                 self.assertEqual(result[0], code)
                 self.assertEqual(result[3], length - 4)
 
-    def test_spc4_every_implemented_type_code(self):
+    def test_spc4_every_implemented_type_code(self) -> None:
         self._check(ExtendedCopySpc4, SPC4_IDS, BLOCK_FIELDS)
 
-    def test_spc5_every_implemented_type_code(self):
+    def test_spc5_every_implemented_type_code(self) -> None:
         fields = dict(BLOCK_FIELDS, fco=0)
         self._check(ExtendedCopySpc5, SPC5_IDS, fields)
 
-    def test_unimplemented_type_code_still_raises(self):
+    def test_unimplemented_type_code_still_raises(self) -> None:
         for cls, ids in ((ExtendedCopySpc4, SPC4_IDS), (ExtendedCopySpc5, SPC5_IDS)):
             with self.subTest(cls=cls.__module__):
                 with self.assertRaises(NotImplementedError):

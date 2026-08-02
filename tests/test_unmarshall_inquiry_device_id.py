@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -27,20 +27,20 @@ DEVICE_RESPONSE = bytearray.fromhex(
 
 
 class InquiryDeviceIdentification(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         parsed = Inquiry.unmarshall_datain(DEVICE_RESPONSE, evpd=1)
         # None only for a page code with no branch; this one is DEVICE_IDENTIFICATION.
         assert parsed is not None
         self.parsed = parsed
 
-    def test_all_designators_are_parsed(self):
+    def test_all_designators_are_parsed(self) -> None:
         self.assertEqual(len(self.parsed["designator_descriptors"]), 7)
         self.assertEqual(
             [d["designator_type"] for d in self.parsed["designator_descriptors"]],
             [1, 3, 4, 3, 5, 3, 8],
         )
 
-    def test_values_match_sg_inq(self):
+    def test_values_match_sg_inq(self) -> None:
         d = self.parsed["designator_descriptors"]
         # sg_inq prints the whole 64-bit NAA name as [0x3333333000000fa0].
         # NAA occupies the top four bits, so the field below it is 60 bits.
@@ -60,7 +60,7 @@ class InquiryDeviceIdentification(unittest.TestCase):
             bytes(d[6]["designator"]["scsi_name_string"]).startswith(b"naa.")
         )
 
-    def test_round_trip_reproduces_the_device_bytes(self):
+    def test_round_trip_reproduces_the_device_bytes(self) -> None:
         """
         Every designator, including the SCSI name string, must marshall back to
         exactly what the device sent.
@@ -69,7 +69,7 @@ class InquiryDeviceIdentification(unittest.TestCase):
             bytearray(Inquiry.marshall_datain(self.parsed)), DEVICE_RESPONSE
         )
 
-    def test_scsi_name_string_designator_marshalls(self):
+    def test_scsi_name_string_designator_marshalls(self) -> None:
         """
         marshall_designator returned the literal key name in a list for this
         type, so any page carrying one raised TypeError on concat.
@@ -97,7 +97,7 @@ class InquiryAtaInformation(unittest.TestCase):
         "31323334"
     )
 
-    def test_sat_fields_do_not_overlap(self):
+    def test_sat_fields_do_not_overlap(self) -> None:
         data = self.HEADER + bytearray(572 - len(self.HEADER))
         r = Inquiry.unmarshall_datain(data, evpd=1)
         assert r is not None

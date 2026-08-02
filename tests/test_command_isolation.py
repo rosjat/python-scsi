@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -23,7 +23,7 @@ class CommandIsolationTest(unittest.TestCase):
     for every command object alive.
     """
 
-    def test_unmarshall_uses_its_own_field_map(self):
+    def test_unmarshall_uses_its_own_field_map(self) -> None:
         with MockSCSI(MockDevice(sbc)) as s:
             inquiry = s.inquiry(alloclen=128)
             raw = bytearray(inquiry.cdb)
@@ -41,7 +41,7 @@ class CommandIsolationTest(unittest.TestCase):
         )
         self.assertEqual(before["alloc_len"], 128)
 
-    def test_class_level_marshall_uses_its_own_field_map(self):
+    def test_class_level_marshall_uses_its_own_field_map(self) -> None:
         with MockSCSI(MockDevice(sbc)) as s:
             s.inquiry(alloclen=128)
             # Constructed last, so it owned the shared class state.
@@ -50,7 +50,7 @@ class CommandIsolationTest(unittest.TestCase):
         cdb = {"opcode": sbc.INQUIRY.value, "evpd": 0, "page_code": 0, "alloc_len": 128}
         self.assertEqual(Inquiry.unmarshall_cdb(Inquiry.marshall_cdb(cdb)), cdb)
 
-    def test_cdb_length_follows_the_command(self):
+    def test_cdb_length_follows_the_command(self) -> None:
         with MockSCSI(MockDevice(sbc)) as s:
             inquiry = s.inquiry(alloclen=128)
             readcap = s.readcapacity16()
@@ -59,7 +59,7 @@ class CommandIsolationTest(unittest.TestCase):
             self.assertEqual(len(inquiry.cdb), 6)
             self.assertEqual(len(readcap.cdb), 16)
 
-    def test_base_class_state_is_not_mutated(self):
+    def test_base_class_state_is_not_mutated(self) -> None:
         with MockSCSI(MockDevice(sbc)) as s:
             s.inquiry(alloclen=128)
 

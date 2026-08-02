@@ -2,7 +2,7 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -21,18 +21,18 @@ class MockInitializeElementStatusWithRange(MockDevice):
 
 
 class CdbInitelementstatuswithrangeTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(smc)) as s:
             r = s.initializeelementstatuswithrange(15, 3, rng=1, fast=1)
-            cdb = r.cdb
+            raw_cdb = r.cdb
             self.assertEqual(
-                cdb[0], s.device.opcodes.INITIALIZE_ELEMENT_STATUS_WITH_RANGE.value
+                raw_cdb[0], s.device.opcodes.INITIALIZE_ELEMENT_STATUS_WITH_RANGE.value
             )
-            self.assertEqual(cdb[1], 0x03)
-            self.assertEqual(scsi_ba_to_int(cdb[2:4]), 15)
-            self.assertEqual(scsi_ba_to_int(cdb[6:8]), 3)
+            self.assertEqual(raw_cdb[1], 0x03)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[2:4]), 15)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[6:8]), 3)
 
-            cdb = r.unmarshall_cdb(cdb)
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(
                 cdb["opcode"],
                 s.device.opcodes.INITIALIZE_ELEMENT_STATUS_WITH_RANGE.value,

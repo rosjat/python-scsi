@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2024 by Brian Meagher<brian.meagher@ixsystems.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -14,19 +14,19 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbSynchronizeCache10Test(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(sbc)) as s:
             s.blocksize = 512
 
             sc = s.synchronizecache10(1024, 25)
-            cdb = sc.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.SYNCHRONIZE_CACHE_10.value)
-            self.assertEqual(cdb[1], 0)
-            self.assertEqual(scsi_ba_to_int(cdb[2:6]), 1024)
-            self.assertEqual(cdb[6], 0)
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 25)
-            self.assertEqual(cdb[9], 0)
-            cdb = sc.unmarshall_cdb(cdb)
+            raw_cdb = sc.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.SYNCHRONIZE_CACHE_10.value)
+            self.assertEqual(raw_cdb[1], 0)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[2:6]), 1024)
+            self.assertEqual(raw_cdb[6], 0)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:9]), 25)
+            self.assertEqual(raw_cdb[9], 0)
+            cdb = sc.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.SYNCHRONIZE_CACHE_10.value)
             self.assertEqual(cdb["immed"], 0)
             self.assertEqual(cdb["lba"], 1024)
@@ -37,14 +37,14 @@ class CdbSynchronizeCache10Test(unittest.TestCase):
             self.assertEqual(d, cdb)
 
             sc = s.synchronizecache10(65536, 27, immed=1, group=19)
-            cdb = sc.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.SYNCHRONIZE_CACHE_10.value)
-            self.assertEqual(cdb[1], 0x02)
-            self.assertEqual(scsi_ba_to_int(cdb[2:6]), 65536)
-            self.assertEqual(cdb[6], 0x13)
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 27)
-            self.assertEqual(cdb[9], 0)
-            cdb = sc.unmarshall_cdb(cdb)
+            raw_cdb = sc.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.SYNCHRONIZE_CACHE_10.value)
+            self.assertEqual(raw_cdb[1], 0x02)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[2:6]), 65536)
+            self.assertEqual(raw_cdb[6], 0x13)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:9]), 27)
+            self.assertEqual(raw_cdb[9], 0)
+            cdb = sc.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.SYNCHRONIZE_CACHE_10.value)
             self.assertEqual(cdb["immed"], 1)
             self.assertEqual(cdb["lba"], 65536)

@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -19,6 +19,7 @@ the mapped value, so the mapping is observable from the result alone:
 """
 
 import unittest
+from typing import Any, List
 
 from pyscsi.pyscsi.scsi_cdb_readcd import ReadCd
 from pyscsi.pyscsi.scsi_enum_readcd import EXPECTED_SECTOR_TYPE
@@ -89,7 +90,7 @@ BIT_FOR_KEY = (
 )
 
 
-def effective_mcsb(mcsb, est):
+def effective_mcsb(mcsb: int, est: int) -> Any:
     """
     Run one sector through unmarshall_datain and rebuild the mapped MCSB from
     the fields it returned. Returns "X" if the call was rejected.
@@ -118,12 +119,12 @@ def effective_mcsb(mcsb, est):
 
 
 class ReadCdMainChannelSelection(unittest.TestCase):
-    def test_table_354_is_transcribed_completely(self):
+    def test_table_354_is_transcribed_completely(self) -> None:
         self.assertEqual(len(TABLE_354), 32)
         self.assertEqual(sum(len(v) for v in TABLE_354.values()), 160)
 
-    def test_mapping_matches_mmc_table_354(self):
-        deviations = []
+    def test_mapping_matches_mmc_table_354(self) -> None:
+        deviations: List[Any] = []
         for mcsb in sorted(TABLE_354):
             for idx, (name, est) in enumerate(SECTOR_TYPES):
                 if (mcsb, est) in KNOWN_DEVIATIONS:
@@ -137,7 +138,7 @@ class ReadCdMainChannelSelection(unittest.TestCase):
         self.assertEqual(deviations, [])
 
     @unittest.expectedFailure
-    def test_known_deviations_from_table_354(self):
+    def test_known_deviations_from_table_354(self) -> None:
         """
         Six cells of table 354 are transcribed differently in the if-chain:
 

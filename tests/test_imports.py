@@ -6,11 +6,12 @@ import importlib
 import pkgutil
 import sys
 import unittest
+from typing import List
 
 import pyscsi
 
 
-def _walk_module_names():
+def _walk_module_names() -> List[str]:
     """Every module under the pyscsi package, including subpackages."""
     return sorted(
         info.name
@@ -29,7 +30,7 @@ class ImportEveryModuleTest(unittest.TestCase):
     module that no other test imports. Importing all of them catches it.
     """
 
-    def test_every_module_imports(self):
+    def test_every_module_imports(self) -> None:
         failures = []
         for name in _walk_module_names():
             try:
@@ -38,14 +39,14 @@ class ImportEveryModuleTest(unittest.TestCase):
                 failures.append(f"{name}: {exc!r}")
         self.assertEqual([], failures)
 
-    def test_command_modules_are_covered(self):
+    def test_command_modules_are_covered(self) -> None:
         # Guard against the walk silently finding nothing, which would make
         # test_every_module_imports pass vacuously.
         names = _walk_module_names()
         cdb_modules = [n for n in names if ".scsi_cdb_" in n]
         self.assertGreater(len(cdb_modules), 30, names)
 
-    def test_scsi_device_is_imported_transitively(self):
+    def test_scsi_device_is_imported_transitively(self) -> None:
         # `from .pyscsi import *` in pyscsi/__init__.py pulls in scsi_device
         # via the __all__ module-name list. mypy cannot model that, so the
         # mechanism will have to change; this pins the behaviour it must keep.

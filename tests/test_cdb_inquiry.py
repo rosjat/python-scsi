@@ -2,7 +2,7 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -15,16 +15,16 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbInquiryTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(spc)) as s:
             # cdb for standard page request
             i = s.inquiry(alloclen=128)
-            cdb = i.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.INQUIRY.value)
-            self.assertEqual(cdb[1:3], bytearray(2))
-            self.assertEqual(scsi_ba_to_int(cdb[3:5]), 128)
-            self.assertEqual(cdb[5], 0)
-            cdb = i.unmarshall_cdb(cdb)
+            raw_cdb = i.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.INQUIRY.value)
+            self.assertEqual(raw_cdb[1:3], bytearray(2))
+            self.assertEqual(scsi_ba_to_int(raw_cdb[3:5]), 128)
+            self.assertEqual(raw_cdb[5], 0)
+            cdb = i.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.INQUIRY.value)
             self.assertEqual(cdb["evpd"], 0)
             self.assertEqual(cdb["page_code"], 0)
@@ -35,13 +35,13 @@ class CdbInquiryTest(unittest.TestCase):
 
             # supported vpd pages
             i = s.inquiry(evpd=1, page_code=0x88, alloclen=300)
-            cdb = i.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.INQUIRY.value)
-            self.assertEqual(cdb[1], 0x01)
-            self.assertEqual(cdb[2], 0x88)
-            self.assertEqual(scsi_ba_to_int(cdb[3:5]), 300)
-            self.assertEqual(cdb[5], 0)
-            cdb = i.unmarshall_cdb(cdb)
+            raw_cdb = i.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.INQUIRY.value)
+            self.assertEqual(raw_cdb[1], 0x01)
+            self.assertEqual(raw_cdb[2], 0x88)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[3:5]), 300)
+            self.assertEqual(raw_cdb[5], 0)
+            cdb = i.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.INQUIRY.value)
             self.assertEqual(cdb["evpd"], 1)
             self.assertEqual(cdb["page_code"], 0x88)

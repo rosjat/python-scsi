@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Brian Meagher<brian.meagher@truenas.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -14,19 +14,21 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbUnmapTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(sbc)) as s:
 
             # Single descriptor, default flags
             u = s.unmap([{"lba": 0, "num_blocks": 0}])
-            cdb = u.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.UNMAP.value)
-            self.assertEqual(cdb[1], 0)  # anchor=0
-            self.assertEqual(scsi_ba_to_int(cdb[2:6]), 0)  # reserved
-            self.assertEqual(cdb[6], 0)  # group=0
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 24)  # 8 header + 16 descriptor
-            self.assertEqual(cdb[9], 0)
-            cdb = u.unmarshall_cdb(cdb)
+            raw_cdb = u.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.UNMAP.value)
+            self.assertEqual(raw_cdb[1], 0)  # anchor=0
+            self.assertEqual(scsi_ba_to_int(raw_cdb[2:6]), 0)  # reserved
+            self.assertEqual(raw_cdb[6], 0)  # group=0
+            self.assertEqual(
+                scsi_ba_to_int(raw_cdb[7:9]), 24
+            )  # 8 header + 16 descriptor
+            self.assertEqual(raw_cdb[9], 0)
+            cdb = u.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.UNMAP.value)
             self.assertEqual(cdb["anchor"], 0)
             self.assertEqual(cdb["group"], 0)
@@ -41,14 +43,14 @@ class CdbUnmapTest(unittest.TestCase):
                 anchor=1,
                 group=0x3F,
             )
-            cdb = u.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.UNMAP.value)
-            self.assertEqual(cdb[1], 0x01)  # anchor=1
-            self.assertEqual(scsi_ba_to_int(cdb[2:6]), 0)  # reserved
-            self.assertEqual(cdb[6], 0x3F)  # group=63
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 24)
-            self.assertEqual(cdb[9], 0)
-            cdb = u.unmarshall_cdb(cdb)
+            raw_cdb = u.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.UNMAP.value)
+            self.assertEqual(raw_cdb[1], 0x01)  # anchor=1
+            self.assertEqual(scsi_ba_to_int(raw_cdb[2:6]), 0)  # reserved
+            self.assertEqual(raw_cdb[6], 0x3F)  # group=63
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:9]), 24)
+            self.assertEqual(raw_cdb[9], 0)
+            cdb = u.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["anchor"], 1)
             self.assertEqual(cdb["group"], 0x3F)
             self.assertEqual(cdb["parameter_list_length"], 24)
@@ -60,16 +62,17 @@ class CdbUnmapTest(unittest.TestCase):
             u = s.unmap(
                 [{"lba": 0x100, "num_blocks": 0x10}, {"lba": 0x200, "num_blocks": 0x20}]
             )
-            cdb = u.cdb
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 40)
-            cdb = u.unmarshall_cdb(cdb)
+            raw_cdb = u.cdb
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:9]), 40)
+            cdb = u.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["parameter_list_length"], 40)
 
-    def test_dataout(self):
+    def test_dataout(self) -> None:
         with MockSCSI(MockDevice(sbc)) as s:
 
             # Single descriptor: verify parameter list bytes
             u = s.unmap([{"lba": 0x0102030405060708, "num_blocks": 0x090A0B0C}])
+            assert u.dataout is not None
             data = u.dataout
             self.assertEqual(len(data), 24)
             # UNMAP DATA LENGTH = 22
@@ -89,6 +92,7 @@ class CdbUnmapTest(unittest.TestCase):
             u = s.unmap(
                 [{"lba": 0x100, "num_blocks": 0x10}, {"lba": 0x200, "num_blocks": 0x20}]
             )
+            assert u.dataout is not None
             data = u.dataout
             self.assertEqual(len(data), 40)
             # UNMAP DATA LENGTH = 38

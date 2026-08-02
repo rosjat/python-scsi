@@ -26,18 +26,18 @@ class OpcodeTableTest(unittest.TestCase):
     whichever command happens to be exercised. These assertions pin the shape.
     """
 
-    def test_member_counts(self):
+    def test_member_counts(self) -> None:
         for name, (table, expected) in OPCODE_TABLES.items():
             with self.subTest(table=name):
                 self.assertEqual(expected, len(table.keys))
 
-    def test_keys_are_unique(self):
+    def test_keys_are_unique(self) -> None:
         for name, (table, _) in OPCODE_TABLES.items():
             with self.subTest(table=name):
                 keys = table.keys
                 self.assertEqual(len(keys), len(set(keys)))
 
-    def test_members_are_opcodes(self):
+    def test_members_are_opcodes(self) -> None:
         for name, (table, _) in OPCODE_TABLES.items():
             with self.subTest(table=name):
                 for key in table.keys:
@@ -45,7 +45,7 @@ class OpcodeTableTest(unittest.TestCase):
                     self.assertIsInstance(opcode, OpCode)
                     self.assertIsInstance(opcode.value, int)
 
-    def test_opcode_name_matches_key_except_known_deviations(self):
+    def test_opcode_name_matches_key_except_known_deviations(self) -> None:
         """A table key and its OpCode.name normally agree. One does not.
 
         SMC_OPCODE_1B is deliberate: it is the synthetic name for an opcode
@@ -69,7 +69,7 @@ class OpcodeTableTest(unittest.TestCase):
             mismatches,
         )
 
-    def test_corrected_names_match_the_standard(self):
+    def test_corrected_names_match_the_standard(self) -> None:
         # T10 op-num: BBh is REDUNDANCY GROUP (OUT), BFh is VOLUME SET (OUT),
         # BEh is VOLUME SET (IN). smc spells all three per the standard; sbc
         # previously did not.
@@ -84,24 +84,24 @@ class OpcodeTableTest(unittest.TestCase):
                 self.assertEqual("VOLUME_SET_IN", table.VOLUME_SET_IN.name)
                 self.assertEqual(0xBE, table.VOLUME_SET_IN.value)
 
-    def test_known_opcodes(self):
+    def test_known_opcodes(self) -> None:
         self.assertEqual(0x12, enum_command.spc.INQUIRY.value)
         self.assertEqual(0x88, enum_command.sbc.READ_16.value)
         self.assertEqual(0x42, enum_command.sbc.UNMAP.value)
         self.assertEqual(0x51, enum_command.mmc.READ_DISC_INFORMATION.value)
         self.assertEqual(0xA5, enum_command.smc.MOVE_MEDIUM.value)
 
-    def test_reverse_lookup(self):
+    def test_reverse_lookup(self) -> None:
         table = enum_command.spc
         self.assertEqual("INQUIRY", table[table.INQUIRY])
 
-    def test_reverse_lookup_miss_returns_empty_string(self):
+    def test_reverse_lookup_miss_returns_empty_string(self) -> None:
         # Deliberate contract: a miss yields "", not a KeyError. tools/ relies
         # on this when printing unknown values.
         self.assertEqual("", enum_command.spc[object()])
         self.assertEqual("", enum_inquiry.DEVICE_TYPE[0xDEADBEEF])
 
-    def test_multiplexed_opcodes_are_reachable(self):
+    def test_multiplexed_opcodes_are_reachable(self) -> None:
         # Opcodes sharing a byte across service actions live under synthetic
         # names and are fetched by their last two characters.
         self.assertEqual(0xA3, enum_command.spc.SPC_OPCODE_A3.value)
@@ -117,7 +117,7 @@ class DuplicateValueTest(unittest.TestCase):
     aliasing would erase 13 of them.
     """
 
-    def test_service_actions_keep_aliased_names(self):
+    def test_service_actions_keep_aliased_names(self) -> None:
         actions = enum_command.spc.SPC_OPCODE_A3.serviceaction
         keys = actions.keys
         values = [getattr(actions, key) for key in keys]
@@ -132,7 +132,7 @@ class DuplicateValueTest(unittest.TestCase):
         self.assertEqual(0x0B, actions.CHANGE_ALIASES)
         self.assertEqual(0x0B, actions.WRITE_32)
 
-    def test_reverse_lookup_picks_first_insertion_order_match(self):
+    def test_reverse_lookup_picks_first_insertion_order_match(self) -> None:
         actions = enum_command.spc.SPC_OPCODE_A3.serviceaction
         name = actions[0x05]
         self.assertIn(
@@ -142,17 +142,17 @@ class DuplicateValueTest(unittest.TestCase):
 
 
 class ValueTableTest(unittest.TestCase):
-    def test_scsi_status_members(self):
+    def test_scsi_status_members(self) -> None:
         self.assertEqual(9, len(enum_command.SCSI_STATUS.keys))
         self.assertEqual(0x00, enum_command.SCSI_STATUS.GOOD)
 
-    def test_disc_type_key_set(self):
+    def test_disc_type_key_set(self) -> None:
         self.assertEqual(
             {"CD-DA or CD-ROM", "CD-I", "CD-ROM XA", "UNDEFINED"},
             set(enum_rdi.DISC_TYPE.keys),
         )
 
-    def test_disc_information_data_type_key_set(self):
+    def test_disc_information_data_type_key_set(self) -> None:
         self.assertEqual(
             {
                 "STANDARD_DISC_INFORMATION",
@@ -162,7 +162,7 @@ class ValueTableTest(unittest.TestCase):
             set(enum_rdi.DISC_INFORMATION_DATA_TYPE.keys),
         )
 
-    def test_inquiry_tables_roundtrip(self):
+    def test_inquiry_tables_roundtrip(self) -> None:
         for name in ("DEVICE_TYPE", "CODE_SET", "ASSOCIATION", "DESIGNATOR", "VPD"):
             table = getattr(enum_inquiry, name)
             with self.subTest(table=name):

@@ -3,7 +3,7 @@
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
 # Copyright (C) 2023 by Brian Meagher <brian.meagher@ixsystems.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -17,20 +17,20 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbReporttargetportgroupsTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(spc)) as s:
             r = s.reporttargetportgroups(data_format=0x00, alloclen=1112527)
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.SPC_OPCODE_A3.value)
+            raw_cdb = r.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.SPC_OPCODE_A3.value)
             self.assertEqual(
-                cdb[1] & 0x1F,
+                raw_cdb[1] & 0x1F,
                 s.device.opcodes.SPC_OPCODE_A3.serviceaction.REPORT_TARGET_PORT_GROUPS,
             )
-            self.assertEqual(cdb[1] & 0xE0, 0x00)
-            self.assertEqual(cdb[2:6], bytearray(4))
-            self.assertEqual(scsi_ba_to_int(cdb[6:10]), 1112527)
-            self.assertEqual(cdb[10:12], bytearray(2))
-            cdb = r.unmarshall_cdb(cdb)
+            self.assertEqual(raw_cdb[1] & 0xE0, 0x00)
+            self.assertEqual(raw_cdb[2:6], bytearray(4))
+            self.assertEqual(scsi_ba_to_int(raw_cdb[6:10]), 1112527)
+            self.assertEqual(raw_cdb[10:12], bytearray(2))
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.SPC_OPCODE_A3.value)
             self.assertEqual(
                 cdb["service_action"],
@@ -45,17 +45,17 @@ class CdbReporttargetportgroupsTest(unittest.TestCase):
             self.assertEqual(d, cdb)
 
             r = s.reporttargetportgroups(data_format=0x01, alloclen=0x400)
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.SPC_OPCODE_A3.value)
+            raw_cdb = r.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.SPC_OPCODE_A3.value)
             self.assertEqual(
-                cdb[1] & 0x1F,
+                raw_cdb[1] & 0x1F,
                 s.device.opcodes.SPC_OPCODE_A3.serviceaction.REPORT_TARGET_PORT_GROUPS,
             )
-            self.assertEqual(cdb[1] & 0xE0, 0x20)
-            self.assertEqual(cdb[2:6], bytearray(4))
-            self.assertEqual(scsi_ba_to_int(cdb[6:10]), 0x400)
-            self.assertEqual(cdb[10:12], bytearray(2))
-            cdb = r.unmarshall_cdb(cdb)
+            self.assertEqual(raw_cdb[1] & 0xE0, 0x20)
+            self.assertEqual(raw_cdb[2:6], bytearray(4))
+            self.assertEqual(scsi_ba_to_int(raw_cdb[6:10]), 0x400)
+            self.assertEqual(raw_cdb[10:12], bytearray(2))
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.SPC_OPCODE_A3.value)
             self.assertEqual(
                 cdb["service_action"],

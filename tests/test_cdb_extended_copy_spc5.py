@@ -1,11 +1,12 @@
 # coding: utf-8
 
 # Copyright (C) 2023 by Brian Meagher <brian.meagher@ixsystems.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import unittest
+from typing import Dict
 
 from pyscsi.pyscsi.scsi_cdb_extended_copy_spc5 import ExtendedCopy
 from pyscsi.pyscsi.scsi_enum_command import spc
@@ -15,32 +16,32 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbExtendedCopyTest(unittest.TestCase):
-    def spstr(self, string_with_spaces):
+    def spstr(self, string_with_spaces: str) -> str:
         return string_with_spaces.replace(" ", "")
 
-    def check_hex_str(self, hexstr, bytedict):
+    def check_hex_str(self, hexstr: str, bytedict: Dict[int, int]) -> None:
         count = int(len(hexstr) / 2)
         checkbytes = bytearray(count)
         for key in bytedict:
             checkbytes[key] = bytedict[key]
         self.assertEqual(hexstr, checkbytes.hex())
 
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(spc)) as s:
             r = s.extendedcopy5()
             self.assertIsInstance(r, ExtendedCopy)
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.EXTENDED_COPY.value)
+            raw_cdb = r.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.EXTENDED_COPY.value)
             self.assertEqual(
-                cdb[1] & 0x1F,
+                raw_cdb[1] & 0x1F,
                 1,
             )
-            self.assertEqual(cdb[2], 0x00)
-            self.assertEqual(cdb[2:10], bytearray(8))
-            self.assertEqual(scsi_ba_to_int(cdb[10:14]), 48)
-            self.assertEqual(cdb[14], 0)
-            self.assertEqual(len(cdb), 16)
-            cdb = r.unmarshall_cdb(cdb)
+            self.assertEqual(raw_cdb[2], 0x00)
+            self.assertEqual(raw_cdb[2:10], bytearray(8))
+            self.assertEqual(scsi_ba_to_int(raw_cdb[10:14]), 48)
+            self.assertEqual(raw_cdb[14], 0)
+            self.assertEqual(len(raw_cdb), 16)
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.EXTENDED_COPY.value)
             self.assertEqual(
                 cdb["service_action"],
@@ -49,50 +50,64 @@ class CdbExtendedCopyTest(unittest.TestCase):
             ExtendedCopy.unmarshall_cdb(ExtendedCopy.marshall_cdb(cdb))
 
             self.assertEqual(r.cdb.hex(), "83010000000000000000000000300000")
+            assert r.dataout is not None
             self.assertEqual(len(r.dataout), 48)
             self.check_hex_str(r.dataout.hex(), {0: 1, 3: 0x20, 16: 0xFF})
 
             # STR
             r = s.extendedcopy5(sequential_striped=1)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 1: 0x20, 3: 0x20, 16: 0xFF})
 
             # LIST ID USAGE
             r = s.extendedcopy5(list_id_usage=1)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 1: 0x08, 3: 0x20, 16: 0xFF})
             r = s.extendedcopy5(list_id_usage=2)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 1: 0x10, 3: 0x20, 16: 0xFF})
             r = s.extendedcopy5(list_id_usage=3)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 1: 0x18, 3: 0x20, 16: 0xFF})
 
             # PRIORITY
             r = s.extendedcopy5(priority=1)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 1: 0x01, 3: 0x20, 16: 0xFF})
             r = s.extendedcopy5(priority=7)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 1: 0x07, 3: 0x20, 16: 0xFF})
 
             r = s.extendedcopy5(sequential_striped=1, list_id_usage=2, priority=5)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 1: 0x35, 3: 0x20, 16: 0xFF})
 
             # G_SENSE
             r = s.extendedcopy5(g_sense=1)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 3: 0x20, 15: 0x02, 16: 0xFF})
 
             # IMMED
             r = s.extendedcopy5(immed=1)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 3: 0x20, 15: 0x01, 16: 0xFF})
 
             # LIST IDENTIFIER
             r = s.extendedcopy5(list_identifier=255)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 3: 0x20, 23: 0xFF, 16: 0xFF})
             r = s.extendedcopy5(list_identifier=256)
+            assert r.dataout is not None
             self.check_hex_str(r.dataout.hex(), {0: 1, 3: 0x20, 22: 0x01, 16: 0xFF})
             r = s.extendedcopy5(list_identifier=257)
+            assert r.dataout is not None
             self.check_hex_str(
                 r.dataout.hex(), {0: 1, 3: 0x20, 22: 0x01, 23: 0x01, 16: 0xFF}
             )
 
             # INLINE DATA
             r = s.extendedcopy5(inline_data=bytearray.fromhex("deadbeef"))
+            assert r.dataout is not None
             self.assertEqual(len(r.dataout), 52)
             self.assertEqual(scsi_ba_to_int(r.cdb[10:14]), 52)
             self.check_hex_str(
@@ -131,6 +146,7 @@ class CdbExtendedCopyTest(unittest.TestCase):
             # EXTENDED COPY parameter list: 48 bytes
             # One CSCD descriptor:          32 bytes (for this descriptor_type_code)
             # Total bytes                   80
+            assert r.dataout is not None
             self.assertEqual(len(r.dataout), 80)
             self.assertEqual(scsi_ba_to_int(r.cdb[10:14]), 80)
             self.check_hex_str(
@@ -174,6 +190,7 @@ class CdbExtendedCopyTest(unittest.TestCase):
                     }
                 ]
             )
+            assert r.dataout is not None
             self.assertEqual(len(r.dataout), 80)
             self.assertEqual(scsi_ba_to_int(r.cdb[10:14]), 80)
             self.check_hex_str(
@@ -235,6 +252,7 @@ class CdbExtendedCopyTest(unittest.TestCase):
                     }
                 ]
             )
+            assert r.dataout is not None
             self.assertEqual(len(r.dataout), 80)
             self.assertEqual(scsi_ba_to_int(r.cdb[10:14]), 80)
             self.check_hex_str(
@@ -287,6 +305,7 @@ class CdbExtendedCopyTest(unittest.TestCase):
                 inline_data=bytearray.fromhex("deadbeef"),
             )
             # length 48 + 28 + 4
+            assert r.dataout is not None
             self.assertEqual(len(r.dataout), 80)
             self.assertEqual(scsi_ba_to_int(r.cdb[10:14]), 80)
             self.check_hex_str(

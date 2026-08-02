@@ -2,7 +2,7 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -14,12 +14,14 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbInitelementstatusTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(smc)) as s:
             r = s.initializeelementstatus()
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.INITIALIZE_ELEMENT_STATUS.value)
-            cdb = r.unmarshall_cdb(cdb)
+            raw_cdb = r.cdb
+            self.assertEqual(
+                raw_cdb[0], s.device.opcodes.INITIALIZE_ELEMENT_STATUS.value
+            )
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(
                 cdb["opcode"], s.device.opcodes.INITIALIZE_ELEMENT_STATUS.value
             )

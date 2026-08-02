@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -19,6 +19,7 @@ AttributeError on first use.
 import ast
 import inspect
 import unittest
+from typing import Set
 
 from pyscsi.pyiscsi.iscsi_device import ISCSIDevice
 from pyscsi.pyscsi.scsi_command import SCSICommand
@@ -41,9 +42,11 @@ EXPECTED = {
 HOSTS = (SCSICommand, SCSIDevice, ISCSIDevice)
 
 
-def _declared(cls):
+def _declared(cls: type) -> Set[str]:
     """Names annotated as ClassVar[Type[Exception]] in the class body."""
-    tree = ast.parse(inspect.getsource(inspect.getmodule(cls)))
+    module = inspect.getmodule(cls)
+    assert module is not None
+    tree = ast.parse(inspect.getsource(module))
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == cls.__name__:
             return {
@@ -56,7 +59,7 @@ def _declared(cls):
     raise AssertionError("no class body found for %s" % cls.__name__)
 
 
-def _injected(cls):
+def _injected(cls: type) -> Set[str]:
     return {
         name
         for name in dir(cls)
@@ -66,23 +69,23 @@ def _injected(cls):
 
 
 class ExceptionInjection(unittest.TestCase):
-    def test_declared_matches_injected(self):
+    def test_declared_matches_injected(self) -> None:
         for cls in HOSTS:
             with self.subTest(cls=cls.__name__):
                 self.assertEqual(_declared(cls), _injected(cls))
 
-    def test_every_host_carries_both_families(self):
+    def test_every_host_carries_both_families(self) -> None:
         for cls in HOSTS:
             with self.subTest(cls=cls.__name__):
                 self.assertEqual(_injected(cls), EXPECTED)
 
-    def test_exceptions_are_distinct_per_host(self):
+    def test_exceptions_are_distinct_per_host(self) -> None:
         # Documented behaviour: SCSIDevice.CheckCondition is not
         # ISCSIDevice.CheckCondition, so catching one will not catch the other.
         self.assertIsNot(SCSIDevice.CheckCondition, ISCSIDevice.CheckCondition)
         self.assertIsNot(SCSIDevice.OpcodeException, SCSICommand.OpcodeException)
 
-    def test_each_is_usable_as_an_exception(self):
+    def test_each_is_usable_as_an_exception(self) -> None:
         # CheckCondition derives from SCSICheckCondition, which parses a sense
         # buffer rather than taking a message. The other nine are plain
         # Exception subclasses.

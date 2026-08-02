@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -14,7 +14,7 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbModeSelect10Test(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         data = {
             "medium_type": 0,
             "device_specific_parameter": 0,
@@ -27,6 +27,7 @@ class CdbModeSelect10Test(unittest.TestCase):
 
             self.assertEqual(cdb[0], s.device.opcodes.MODE_SELECT_10.value)
             self.assertEqual(cdb[1], 0x10)  # pf=1, sp=0
+            assert m.dataout is not None
             self.assertEqual(scsi_ba_to_int(cdb[7:9]), len(m.dataout))
             self.assertEqual(len(cdb), 10)
 
@@ -40,7 +41,7 @@ class CdbModeSelect10Test(unittest.TestCase):
                 ModeSelect10.unmarshall_cdb(ModeSelect10.marshall_cdb(d)), d
             )
 
-    def test_sp_and_pf_are_passed_through(self):
+    def test_sp_and_pf_are_passed_through(self) -> None:
         data = {
             "medium_type": 0,
             "device_specific_parameter": 0,

@@ -2,21 +2,23 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import unittest
+from typing import Any
 
 from pyscsi.pyscsi import scsi_enum_readelementstatus as READELEMENTSTATUS
 from pyscsi.pyscsi.scsi_cdb_readelementstatus import ReadElementStatus
+from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_enum_command import smc
 from pyscsi.utils.converter import scsi_int_to_ba
 from tests.mock_device import MockDevice, MockSCSI
 
 
 class MockReadElementStatus(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         # element status header data
         data = bytearray(8)
         data[0:2] = scsi_int_to_ba(12, 2)  # first element address reported
@@ -74,7 +76,7 @@ class MockReadElementStatus(MockDevice):
 
 
 class UnmarshallReadelementstatusTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockReadElementStatus(smc)) as s:
             i = s.readelementstatus(
                 300,

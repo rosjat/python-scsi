@@ -2,7 +2,7 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -15,19 +15,19 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbMovemediumTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(smc)) as s:
             m = s.movemedium(15, 32, 64, invert=1)
-            cdb = m.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.MOVE_MEDIUM.value)
-            self.assertEqual(cdb[1], 0)
-            self.assertEqual(scsi_ba_to_int(cdb[2:4]), 15)
-            self.assertEqual(scsi_ba_to_int(cdb[4:6]), 32)
-            self.assertEqual(scsi_ba_to_int(cdb[6:8]), 64)
-            self.assertEqual(cdb[8], 0)
-            self.assertEqual(cdb[9], 0)
-            self.assertEqual(cdb[10], 0x01)
-            cdb = m.unmarshall_cdb(cdb)
+            raw_cdb = m.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.MOVE_MEDIUM.value)
+            self.assertEqual(raw_cdb[1], 0)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[2:4]), 15)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[4:6]), 32)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[6:8]), 64)
+            self.assertEqual(raw_cdb[8], 0)
+            self.assertEqual(raw_cdb[9], 0)
+            self.assertEqual(raw_cdb[10], 0x01)
+            cdb = m.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.MOVE_MEDIUM.value)
             self.assertEqual(cdb["medium_transport_address"], 15)
             self.assertEqual(cdb["source_address"], 32)

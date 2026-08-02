@@ -2,19 +2,21 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import unittest
+from typing import Any
 
 from pyscsi.pyscsi.scsi_cdb_readcapacity16 import ReadCapacity16
+from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_enum_command import sbc
 from tests.mock_device import MockDevice, MockSCSI
 
 
 class MockReadCapacity16(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         # lba
         cmd.datain[0:8] = [0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         # block size
@@ -26,7 +28,7 @@ class MockReadCapacity16(MockDevice):
 
 
 class UnmarshallReadcapacity16Test(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockReadCapacity16(sbc)) as s:
             i = s.readcapacity16().result
             self.assertEqual(i["returned_lba"], 281474976710656)

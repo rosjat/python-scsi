@@ -2,7 +2,7 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -17,19 +17,19 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbOpencloseExportimportElementTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(smc)) as s:
             m = s.opencloseimportexportelement(
                 32,
                 s.device.opcodes.OPEN_CLOSE_IMPORT_EXPORT_ELEMENT.serviceaction.CLOSE_IMPORTEXPORT_ELEMENT,
             )
-            cdb = m.cdb
+            raw_cdb = m.cdb
             self.assertEqual(
-                cdb[0], s.device.opcodes.OPEN_CLOSE_IMPORT_EXPORT_ELEMENT.value
+                raw_cdb[0], s.device.opcodes.OPEN_CLOSE_IMPORT_EXPORT_ELEMENT.value
             )
-            self.assertEqual(scsi_ba_to_int(cdb[2:4]), 32)
-            self.assertEqual(cdb[4], 0x01)
-            cdb = m.unmarshall_cdb(cdb)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[2:4]), 32)
+            self.assertEqual(raw_cdb[4], 0x01)
+            cdb = m.unmarshall_cdb(raw_cdb)
             self.assertEqual(
                 cdb["opcode"], s.device.opcodes.OPEN_CLOSE_IMPORT_EXPORT_ELEMENT.value
             )

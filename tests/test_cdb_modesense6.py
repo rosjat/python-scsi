@@ -2,7 +2,7 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -15,18 +15,20 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbModesense6Test(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockDevice(spc)) as s:
             # cdb for SMC: ElementAddressAssignment
             m = s.modesense6(page_code=MODESENSE6.PAGE_CODE.ELEMENT_ADDRESS_ASSIGNMENT)
-            cdb = m.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.MODE_SENSE_6.value)
-            self.assertEqual(cdb[1], 0)
-            self.assertEqual(cdb[2], MODESENSE6.PAGE_CODE.ELEMENT_ADDRESS_ASSIGNMENT)
-            self.assertEqual(cdb[3], 0)
-            self.assertEqual(cdb[4], 96)
-            self.assertEqual(cdb[5], 0)
-            cdb = m.unmarshall_cdb(cdb)
+            raw_cdb = m.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.MODE_SENSE_6.value)
+            self.assertEqual(raw_cdb[1], 0)
+            self.assertEqual(
+                raw_cdb[2], MODESENSE6.PAGE_CODE.ELEMENT_ADDRESS_ASSIGNMENT
+            )
+            self.assertEqual(raw_cdb[3], 0)
+            self.assertEqual(raw_cdb[4], 96)
+            self.assertEqual(raw_cdb[5], 0)
+            cdb = m.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.MODE_SENSE_6.value)
             self.assertEqual(cdb["dbd"], 0)
             self.assertEqual(cdb["pc"], 0)
@@ -46,14 +48,14 @@ class CdbModesense6Test(unittest.TestCase):
                 pc=MODESENSE6.PC.DEFAULT,
                 alloclen=90,
             )
-            cdb = m.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.MODE_SENSE_6.value)
-            self.assertEqual(cdb[1], 0x08)
-            self.assertEqual(cdb[2], MODESENSE6.PC.DEFAULT << 6)
-            self.assertEqual(cdb[3], 3)
-            self.assertEqual(cdb[4], 90)
-            self.assertEqual(cdb[5], 0)
-            cdb = m.unmarshall_cdb(cdb)
+            raw_cdb = m.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.MODE_SENSE_6.value)
+            self.assertEqual(raw_cdb[1], 0x08)
+            self.assertEqual(raw_cdb[2], MODESENSE6.PC.DEFAULT << 6)
+            self.assertEqual(raw_cdb[3], 3)
+            self.assertEqual(raw_cdb[4], 90)
+            self.assertEqual(raw_cdb[5], 0)
+            cdb = m.unmarshall_cdb(raw_cdb)
             self.assertEqual(cdb["opcode"], s.device.opcodes.MODE_SENSE_6.value)
             self.assertEqual(cdb["dbd"], 1)
             self.assertEqual(cdb["pc"], MODESENSE6.PC.DEFAULT)

@@ -2,13 +2,15 @@
 
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import unittest
+from typing import Any
 
 from pyscsi.pyscsi.scsi_cdb_getlbastatus import GetLBAStatus
+from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_enum_command import sbc
 from pyscsi.pyscsi.scsi_enum_getlbastatus import P_STATUS
 from pyscsi.utils.converter import scsi_int_to_ba
@@ -16,7 +18,7 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class MockGetLBAStatus(MockDevice):
-    def execute(self, cmd, en_raw_sense: bool = False):
+    def execute(self, cmd: SCSICommand[Any], en_raw_sense: bool = False) -> None:
         cmd.datain[0:8] = bytearray(8)
         pos = 8
 
@@ -38,7 +40,7 @@ class MockGetLBAStatus(MockDevice):
 
 
 class UnmarshallGetlbastatusTest(unittest.TestCase):
-    def test_main(self):
+    def test_main(self) -> None:
         with MockSCSI(MockGetLBAStatus(sbc)) as s:
             i = s.getlbastatus(0).result
             self.assertEqual(len(i["lbas"]), 2)

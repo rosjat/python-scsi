@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import unittest
+from typing import Any
 
 from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_enum_command import sbc
@@ -16,10 +17,10 @@ class InitCdbTest(unittest.TestCase):
     vendor-specific groups 6 and 7 have no fixed length and must be rejected.
     """
 
-    def _cdb_len(self, value):
+    def _cdb_len(self, value: int) -> int:
         return len(SCSICommand.init_cdb(OpCode("TEST", value, {})))
 
-    def test_fixed_length_groups(self):
+    def test_fixed_length_groups(self) -> None:
         cases = [
             # group 0 -> 6
             (0x00, 6),
@@ -42,7 +43,7 @@ class InitCdbTest(unittest.TestCase):
             with self.subTest(opcode=hex(value)):
                 self.assertEqual(expected, self._cdb_len(value))
 
-    def test_group_3_is_rejected(self):
+    def test_group_3_is_rejected(self) -> None:
         # 0x7E is the extended CDB and 0x7F the variable length CDB; neither
         # has a length that init_cdb can derive from the opcode alone.
         for value in (0x60, 0x7E, 0x7F):
@@ -51,24 +52,24 @@ class InitCdbTest(unittest.TestCase):
                     self._cdb_len(value)
                 self.assertIn("variable length", str(ctx.exception))
 
-    def test_vendor_specific_is_rejected(self):
+    def test_vendor_specific_is_rejected(self) -> None:
         for value in (0xC0, 0xE0, 0xFF):
             with self.subTest(opcode=hex(value)):
                 with self.assertRaises(SCSICommand.OpcodeException) as ctx:
                     self._cdb_len(value)
                 self.assertIn("vendor specific", str(ctx.exception))
 
-    def test_declared_7f_opcode_is_rejected_with_a_reason(self):
+    def test_declared_7f_opcode_is_rejected_with_a_reason(self) -> None:
         # The opcode tables are a full registry of the standard, so 0x7F is
         # declared whether or not a command is built on it. Reaching init_cdb
         # with a real table entry must fail with an explanation rather than a
         # bare exception.
         with self.assertRaises(SCSICommand.OpcodeException) as ctx:
-            SCSICommand.init_cdb(sbc.SBC_OPCODE_7F)
+            SCSICommand[Any].init_cdb(sbc.SBC_OPCODE_7F)
         self.assertIn("0x7F", str(ctx.exception))
         self.assertIn("variable length", str(ctx.exception))
 
-    def test_every_declared_opcode_either_sizes_or_explains(self):
+    def test_every_declared_opcode_either_sizes_or_explains(self) -> None:
         # No opcode in any table may fail with an empty message.
         from pyscsi.pyscsi import scsi_enum_command as enum_command
 

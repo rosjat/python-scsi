@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # Copyright (C) 2026 by Markus Rosjat <markus.rosjat@gmail.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -19,6 +19,8 @@ import importlib
 import inspect
 import pkgutil
 import unittest
+from types import ModuleType
+from typing import Any, Dict, Iterator, List, Tuple
 
 import pyscsi
 from pyscsi.utils.converter import validate_check_dict
@@ -26,28 +28,28 @@ from pyscsi.utils.exception import NotSupportedArgumentError
 from pyscsi.utils.table import BitsTable
 
 
-def _modules():
+def _modules() -> Iterator[ModuleType]:
     for info in pkgutil.walk_packages(pyscsi.__path__, prefix="pyscsi."):
         yield importlib.import_module(info.name)
 
 
-def _tables():
+def _tables() -> Iterator[Tuple[str, Dict[str, Any]]]:
     """Yield (label, check_dict) for every layout table reachable in pyscsi."""
     seen = set()
 
-    def looks_like_a_table(value):
+    def looks_like_a_table(value: Any) -> bool:
         # Matched on shape, not name: the layouts are spelled _cdb_bits,
         # _segment_descriptor_bits_stream_to_block and
         # _device_specific_cscd_descriptor_parameters_block alike. Value tables
         # are excluded by their int values, code tables by their int keys.
         return (
             isinstance(value, dict)
-            and value
+            and bool(value)
             and all(isinstance(k, str) for k in value)
             and all(isinstance(v, (list, tuple)) for v in value.values())
         )
 
-    def emit(label, value):
+    def emit(label: str, value: Any) -> Iterator[Tuple[str, Dict[str, Any]]]:
         # Dedupe on the table itself: star-imports make the same object reachable
         # under many names.
         if isinstance(value, BitsTable):
@@ -72,7 +74,7 @@ def _tables():
 
 
 class CheckDictShapes(unittest.TestCase):
-    def test_every_table_in_the_package_is_well_formed(self):
+    def test_every_table_in_the_package_is_well_formed(self) -> None:
         count = 0
         entries = 0
         for label, table in _tables():
@@ -86,8 +88,9 @@ class CheckDictShapes(unittest.TestCase):
         self.assertGreater(count, 100, "found only %d tables" % count)
         self.assertGreater(entries, 600, "found only %d entries" % entries)
 
-    def test_malformed_entries_are_rejected(self):
-        cases = [
+    def test_malformed_entries_are_rejected(self) -> None:
+        # Deliberately malformed, so the entries have no common type.
+        cases: List[Tuple[str, Any]] = [
             ("not a sequence", {"f": 42}),
             ("wrong length", {"f": [0xFF, 0, 1, 2]}),
             ("bitmask not an int", {"f": ["x", 0]}),
@@ -102,7 +105,7 @@ class CheckDictShapes(unittest.TestCase):
                 with self.assertRaises(NotSupportedArgumentError):
                     validate_check_dict(table)
 
-    def test_both_valid_notations_are_accepted(self):
+    def test_both_valid_notations_are_accepted(self) -> None:
         validate_check_dict(
             {
                 "legacy": [0xFF, 0],

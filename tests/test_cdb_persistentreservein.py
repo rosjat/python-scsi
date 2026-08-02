@@ -3,7 +3,7 @@
 # Copyright (C) 2014 by Ronnie Sahlberg <ronniesahlberg@gmail.com>
 # Copyright (C) 2015 by Markus Rosjat <markus.rosjat@gmail.com>
 # Copyright (C) 2023 by Brian Meagher <brian.meagher@ixsystems.com>
-# SPDX-FileCopyrightText: 2014 The python-scsi Authors
+# SPDX-FileCopyrightText: 2014-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
@@ -18,7 +18,7 @@ from tests.mock_device import MockDevice, MockSCSI
 
 
 class CdbPersistentreserveinTest(unittest.TestCase):
-    def check_report_capabilities(self, data, bit_set):
+    def check_report_capabilities(self, data: bytearray, bit_set: str) -> None:
         result = PersistentReserveInReportCapabilities.unmarshall_datain(data)
         for k in ["ptpl_c", "atp_c", "sip_c", "crh", "rlr_c", "ptpl_a", "tmv"]:
             if k == bit_set:
@@ -31,7 +31,7 @@ class CdbPersistentreserveinTest(unittest.TestCase):
             else:
                 self.assertEqual(result["pr_type_mask"][k], 0)
 
-    def test_main(self):
+    def test_main(self) -> None:
         key1_data = bytearray(b"\x00\x00\x00\x00\xDE\xAD\xBE\xEF")
         key2_data = bytearray(b"\xAB\xCD\xEF\xAA\xBB\xCC\xDD\xEE")
         key1_value = 0xDEADBEEF
@@ -41,17 +41,17 @@ class CdbPersistentreserveinTest(unittest.TestCase):
             # READ KEYS
             r = s.persistentreservein(service_action=0x00, alloclen=256)
             self.assertIsInstance(r, PersistentReserveInReadKeys)
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.PERSISTENT_RESERVE_IN.value)
+            raw_cdb = r.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.PERSISTENT_RESERVE_IN.value)
             self.assertEqual(
-                cdb[1] & 0x1F,
+                raw_cdb[1] & 0x1F,
                 s.device.opcodes.PERSISTENT_RESERVE_IN.serviceaction.READ_KEYS,
             )
-            self.assertEqual(cdb[2:6], bytearray(4))
-            self.assertEqual(cdb[7], 1)
-            self.assertEqual(cdb[8], 0)
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 256)
-            cdb = r.unmarshall_cdb(cdb)
+            self.assertEqual(raw_cdb[2:6], bytearray(4))
+            self.assertEqual(raw_cdb[7], 1)
+            self.assertEqual(raw_cdb[8], 0)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:9]), 256)
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(
                 cdb["opcode"], s.device.opcodes.PERSISTENT_RESERVE_IN.value
             )
@@ -88,17 +88,17 @@ class CdbPersistentreserveinTest(unittest.TestCase):
             # READ RESERVATION
             r = s.persistentreservein(service_action=0x01, alloclen=255)
             self.assertIsInstance(r, PersistentReserveInReadReservation)
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.PERSISTENT_RESERVE_IN.value)
+            raw_cdb = r.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.PERSISTENT_RESERVE_IN.value)
             self.assertEqual(
-                cdb[1] & 0x1F,
+                raw_cdb[1] & 0x1F,
                 s.device.opcodes.PERSISTENT_RESERVE_IN.serviceaction.READ_RESERVATION,
             )
-            self.assertEqual(cdb[2:6], bytearray(4))
-            self.assertEqual(cdb[7], 0)
-            self.assertEqual(cdb[8], 0xFF)
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 255)
-            cdb = r.unmarshall_cdb(cdb)
+            self.assertEqual(raw_cdb[2:6], bytearray(4))
+            self.assertEqual(raw_cdb[7], 0)
+            self.assertEqual(raw_cdb[8], 0xFF)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:9]), 255)
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(
                 cdb["opcode"], s.device.opcodes.PERSISTENT_RESERVE_IN.value
             )
@@ -140,17 +140,17 @@ class CdbPersistentreserveinTest(unittest.TestCase):
             # REPORT CAPABILITIES
             r = s.persistentreservein(service_action=0x02, alloclen=2048)
             self.assertIsInstance(r, PersistentReserveInReportCapabilities)
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.PERSISTENT_RESERVE_IN.value)
+            raw_cdb = r.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.PERSISTENT_RESERVE_IN.value)
             self.assertEqual(
-                cdb[1] & 0x1F,
+                raw_cdb[1] & 0x1F,
                 s.device.opcodes.PERSISTENT_RESERVE_IN.serviceaction.REPORT_CAPABILITIES,
             )
-            self.assertEqual(cdb[2:6], bytearray(4))
-            self.assertEqual(cdb[7], 0x08)
-            self.assertEqual(cdb[8], 0x00)
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 2048)
-            cdb = r.unmarshall_cdb(cdb)
+            self.assertEqual(raw_cdb[2:6], bytearray(4))
+            self.assertEqual(raw_cdb[7], 0x08)
+            self.assertEqual(raw_cdb[8], 0x00)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:9]), 2048)
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(
                 cdb["opcode"], s.device.opcodes.PERSISTENT_RESERVE_IN.value
             )
@@ -214,17 +214,17 @@ class CdbPersistentreserveinTest(unittest.TestCase):
             # READ FULL STATUS
             r = s.persistentreservein(service_action=0x03, alloclen=512)
             self.assertIsInstance(r, PersistentReserveInReadFullStatus)
-            cdb = r.cdb
-            self.assertEqual(cdb[0], s.device.opcodes.PERSISTENT_RESERVE_IN.value)
+            raw_cdb = r.cdb
+            self.assertEqual(raw_cdb[0], s.device.opcodes.PERSISTENT_RESERVE_IN.value)
             self.assertEqual(
-                cdb[1] & 0x1F,
+                raw_cdb[1] & 0x1F,
                 s.device.opcodes.PERSISTENT_RESERVE_IN.serviceaction.READ_FULL_STATUS,
             )
-            self.assertEqual(cdb[2:6], bytearray(4))
-            self.assertEqual(cdb[7], 0x02)
-            self.assertEqual(cdb[8], 0x00)
-            self.assertEqual(scsi_ba_to_int(cdb[7:9]), 512)
-            cdb = r.unmarshall_cdb(cdb)
+            self.assertEqual(raw_cdb[2:6], bytearray(4))
+            self.assertEqual(raw_cdb[7], 0x02)
+            self.assertEqual(raw_cdb[8], 0x00)
+            self.assertEqual(scsi_ba_to_int(raw_cdb[7:9]), 512)
+            cdb = r.unmarshall_cdb(raw_cdb)
             self.assertEqual(
                 cdb["opcode"], s.device.opcodes.PERSISTENT_RESERVE_IN.value
             )

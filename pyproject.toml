@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2020 The python-scsi Authors
+# SPDX-FileCopyrightText: 2020-2026 The python-scsi Authors
 #
 # SPDX-License-Identifier: MIT
 
@@ -96,10 +96,8 @@ python_classes = []
 [tool.mypy]
 python_version = "3.11"
 files = ["pyscsi", "tests"]
-# Deliberately lenient: the codebase is almost entirely unannotated, so the
-# goal for now is only that mypy runs. Tighten to strict = true once the
-# annotation sweep lands, keeping a per-module override list that shrinks as
-# modules are converted.
+strict = true
+
 
 [[tool.mypy.overrides]]
 # Optional Cython transports. Not installed in the dev container, and not
