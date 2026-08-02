@@ -5,11 +5,15 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
 import pyscsi.pyscsi.scsi_enum_modesense as modesense_enums
 from pyscsi.pyscsi.scsi_command import SCSICommand
-from pyscsi.utils.converter import decode_bits, encode_dict, scsi_int_to_ba
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
+
+from pyscsi.utils.converter import CheckDict, decode_bits, encode_dict, scsi_int_to_ba
 from pyscsi.utils.table import BitsTable, ValueTable
 
 #
@@ -22,7 +26,7 @@ class ModeSense6(SCSICommand):
     A class to hold information from a modesense6 command
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "dbd": [0x08, 1],
         "pc": [0xC0, 2],
@@ -35,7 +39,15 @@ class ModeSense6(SCSICommand):
     PAGE_CODE: ClassVar[ValueTable] = modesense_enums.PAGE_CODE
     MODESENSE6: ClassVar[BitsTable] = modesense_enums.MODESENSE6
 
-    def __init__(self, opcode, page_code, sub_page_code=0, dbd=0, pc=0, alloclen=96):
+    def __init__(
+        self,
+        opcode: "OpCode",
+        page_code: int,
+        sub_page_code: int = 0,
+        dbd: int = 0,
+        pc: int = 0,
+        alloclen: int = 96,
+    ) -> None:
         """
         initialize a new instance
 
@@ -58,15 +70,15 @@ class ModeSense6(SCSICommand):
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the ModeSense6 datain.
 
         :param data: a byte array with data
         :return result: a dict
         """
-        result = {}
-        _mps = []
+        result: Dict[str, Any] = {}
+        _mps: List[Any] = []
         decode_bits(data[0:4], cls.MODESENSE6.mode_parameter_header_bits, result)
 
         _bdl = data[3]
@@ -74,7 +86,7 @@ class ModeSense6(SCSICommand):
 
         data = data[4 + _bdl :]
 
-        _r = {}
+        _r: Dict[str, Any] = {}
         if not data[0] & 0x40:
             decode_bits(data, cls.MODESENSE6.page_zero_bits, _r)
             data = data[2:]
@@ -99,7 +111,7 @@ class ModeSense6(SCSICommand):
         return result
 
     @classmethod
-    def marshall_datain(cls, data):
+    def marshall_datain(cls, data: Dict[str, Any]) -> bytearray:
         """
         Marshall the ModeSense6 datain.
 
@@ -150,14 +162,16 @@ class ModeSelect6(SCSICommand):
     A class to hold information from a modeselect6 command
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "pf": [0x10, 1],
         "sp": [0x01, 1],
         "parameter_list_length": [0xFF, 4],
     }
 
-    def __init__(self, opcode, data, pf=1, sp=0):
+    def __init__(
+        self, opcode: "OpCode", data: Dict[str, Any], pf: int = 1, sp: int = 0
+    ) -> None:
         """
         initialize a new instance
 
@@ -175,7 +189,7 @@ class ModeSelect6(SCSICommand):
         )
 
     @staticmethod
-    def unmarshall_datain(data):
+    def unmarshall_datain(data: bytearray) -> None:
         """
         Unmarshall the ModeSelect6 dataout.
 
@@ -184,7 +198,7 @@ class ModeSelect6(SCSICommand):
         return None
 
     @staticmethod
-    def marshall_dataout(data):
+    def marshall_dataout(data: Dict[str, Any]) -> bytearray:
         """
         Marshall the ModeSelect6 dataout.
 

@@ -5,8 +5,13 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
-from pyscsi.utils.converter import decode_bits, encode_dict
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
+from pyscsi.utils.converter import CheckDict, decode_bits, encode_dict
 
 #
 # SCSI ReadCapacity16 command and definitions
@@ -18,13 +23,13 @@ class ReadCapacity16(SCSICommand):
     A class to hold information from a ReadCapacity(16) command to a scsi device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "service_action": [0x1F, 1],
         "alloc_len": [0xFFFFFFFF, 10],
     }
 
-    _datain_bits = {
+    _datain_bits: CheckDict = {
         "returned_lba": [0xFFFFFFFFFFFFFFFF, 0],
         "block_length": [0xFFFFFFFF, 8],
         "p_type": [0x0E, 12],
@@ -36,7 +41,7 @@ class ReadCapacity16(SCSICommand):
         "lowest_aligned_lba": [0x3FFF, 14],
     }
 
-    def __init__(self, opcode, alloclen=32):
+    def __init__(self, opcode: "OpCode", alloclen: int = 32) -> None:
         """
         initialize a new instance
 
@@ -52,19 +57,19 @@ class ReadCapacity16(SCSICommand):
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the ReadCapacity16 datain.
 
         :param data: a byte array
         :return result: a dict
         """
-        result = {}
+        result: Dict[str, Any] = {}
         decode_bits(data, cls._datain_bits, result)
         return result
 
     @classmethod
-    def marshall_datain(cls, data):
+    def marshall_datain(cls, data: Dict[str, Any]) -> bytearray:
         """
         Marshall the ReadCapacity16 datain.
 

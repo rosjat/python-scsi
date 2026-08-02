@@ -5,11 +5,15 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
 import pyscsi.pyscsi.scsi_enum_readdiscinformation as rdi_enums
 from pyscsi.pyscsi.scsi_command import SCSICommand
-from pyscsi.utils.converter import decode_bits, encode_dict
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
+
+from pyscsi.utils.converter import CheckDict, decode_bits, encode_dict
 from pyscsi.utils.table import ValueTable
 
 #
@@ -22,7 +26,7 @@ class ReadDiscInformation(SCSICommand):
     A class to hold information from a ReadDiscInformation command to a scsi device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "data_type": [0x07, 1],
         "alloc_len": [0xFFFF, 7],
@@ -35,7 +39,7 @@ class ReadDiscInformation(SCSICommand):
     DISC_TYPE: ClassVar[ValueTable] = rdi_enums.DISC_TYPE
     STATE_OF_LAST_SESSION: ClassVar[ValueTable] = rdi_enums.STATE_OF_LAST_SESSION
 
-    _sdi_bits = {
+    _sdi_bits: CheckDict = {
         "disc_information_length": [0xFFFF, 0],
         "disc_information_data_type": [0xE0, 2],
         "erasable": [0x10, 2],
@@ -62,7 +66,7 @@ class ReadDiscInformation(SCSICommand):
         "disc_application_code": [0xFF, 32],
         "number_of_opc_tables": [0xFF, 33],
     }
-    _tri_bits = {
+    _tri_bits: CheckDict = {
         "disc_information_length": [0xFFFF, 0],
         "disc_information_data_type": [0xE0, 2],
         "maximum_possible_number_of_the_tracks": [0xFFFF, 4],
@@ -70,7 +74,7 @@ class ReadDiscInformation(SCSICommand):
         "maximum_possible_number_of_appendable_tracks": [0xFFFF, 8],
         "current_number_of_appendable_tracks": [0xFFFF, 10],
     }
-    _pow_bits = {
+    _pow_bits: CheckDict = {
         "disc_information_length": [0xFFFF, 0],
         "disc_information_data_type": [0xE0, 2],
         "remaining_pow_replacements": [0xFFFFFFFF, 4],
@@ -78,7 +82,7 @@ class ReadDiscInformation(SCSICommand):
         "number_of_remaining_pow_updates": [0xFFFFFFFF, 12],
     }
 
-    def __init__(self, opcode, data_type, alloc_len=4096):
+    def __init__(self, opcode: "OpCode", data_type: int, alloc_len: int = 4096) -> None:
         """
         initialize a new instance
 
@@ -94,14 +98,14 @@ class ReadDiscInformation(SCSICommand):
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the ReadDiscInformation datain.
 
         :param data: a byte array
         :return result: a dict
         """
-        result = {}
+        result: Dict[str, Any] = {}
         if data[2] >> 5 == cls.DISC_INFORMATION_DATA_TYPE.STANDARD_DISC_INFORMATION:
             decode_bits(data, cls._sdi_bits, result)
             data = data[: result["disc_information_length"] + 2]

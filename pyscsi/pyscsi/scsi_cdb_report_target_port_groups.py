@@ -5,9 +5,15 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 from pyscsi.pyscsi.scsi_enum_report_target_port_groups import DATA_FORMAT_TYPE
 from pyscsi.utils.converter import (
+    CheckDict,
     decode_bits,
     encode_dict,
     scsi_ba_to_int,
@@ -24,14 +30,14 @@ class ReportTargetPortGroups(SCSICommand):
     A class to hold information from a ReportTargetPortGroups command to a scsi device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "service_action": [0x1F, 1],
         "parameter_data_format": [0xE0, 1],
         "alloc_len": [0xFFFFFFFF, 6],
     }
 
-    _tpgd_bits = {
+    _tpgd_bits: CheckDict = {
         "asymmetric_access_state": [0x0F, 0],
         "pref": [0x80, 0],
         "ao_sup": [0x01, 1],
@@ -46,17 +52,17 @@ class ReportTargetPortGroups(SCSICommand):
         "target_port_count": [0xFF, 7],
     }
 
-    _ext_hdr_bits = {
+    _ext_hdr_bits: CheckDict = {
         "format_type": [0x70, 0],
         "implicit_transition_time": [0xFF, 1],
     }
 
     def __init__(
         self,
-        opcode,
-        data_format=DATA_FORMAT_TYPE.LENGTH_ONLY_HEADER_PARAMETER_DATA_FORMAT,
-        alloclen=16384,
-    ):
+        opcode: "OpCode",
+        data_format: int = DATA_FORMAT_TYPE.LENGTH_ONLY_HEADER_PARAMETER_DATA_FORMAT,
+        alloclen: int = 16384,
+    ) -> None:
         """
         initialize a new instance
 
@@ -74,20 +80,20 @@ class ReportTargetPortGroups(SCSICommand):
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the ReportTargetPortGroups datain.
 
         :param data: a byte array
         :return result: a dic
         """
-        result = {}
+        result: Dict[str, Any] = {}
         #  get the data after the return_data_length
         _data = data[4 : scsi_ba_to_int(data[:4]) + 4]
 
         # Check whether length only or extended header parameter data format
         if len(_data) >= 4:
-            _r = {}
+            _r: Dict[str, Any] = {}
             decode_bits(_data, cls._ext_hdr_bits, _r)
             result["format_type"] = _r["format_type"]
             if (
@@ -103,11 +109,11 @@ class ReportTargetPortGroups(SCSICommand):
 
         _tpg_descriptors = []  # Target Port Group Descriptors
         while len(_data):
-            _tpgd = {}  # Target Port Group Descriptor
+            _tpgd: Dict[str, Any] = {}  # Target Port Group Descriptor
             decode_bits(_data, cls._tpgd_bits, _tpgd)
             _data = _data[8:]
 
-            _tp_descriptors = []  # Target Port Desxcriptors
+            _tp_descriptors: List[Any] = []  # Target Port Desxcriptors
             while len(_data) and len(_tp_descriptors) < _tpgd["target_port_count"]:
                 _tpd = {}  # Target Port Desxcriptor
                 _tpd["relative_target_port_id"] = scsi_ba_to_int(_data[2:4])
@@ -125,7 +131,7 @@ class ReportTargetPortGroups(SCSICommand):
         return result
 
     @classmethod
-    def marshall_datain(cls, data):
+    def marshall_datain(cls, data: Dict[str, Any]) -> bytearray:
         """
         Marshall the ReportTargetPortGroups datain.
 

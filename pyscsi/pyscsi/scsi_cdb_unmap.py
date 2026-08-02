@@ -5,8 +5,13 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
-from pyscsi.utils.converter import scsi_int_to_ba
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
+from pyscsi.utils.converter import CheckDict, scsi_int_to_ba
 
 #
 # SCSI UNMAP command and definitions
@@ -20,7 +25,7 @@ class Unmap(SCSICommand):
     A class to send an UNMAP command to a scsi device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "anchor": [0x01, 1],
         "group": [0x3F, 6],
@@ -28,7 +33,7 @@ class Unmap(SCSICommand):
     }
 
     @classmethod
-    def marshall_dataout(cls, lbas):
+    def marshall_dataout(cls, lbas: List[Dict[str, int]]) -> bytearray:
         """
         Build the UNMAP parameter list (SBC-4 5.35.1).
 
@@ -53,7 +58,13 @@ class Unmap(SCSICommand):
 
         return header + descriptors
 
-    def __init__(self, opcode, lbas, anchor=0, group=0):
+    def __init__(
+        self,
+        opcode: "OpCode",
+        lbas: List[Dict[str, int]],
+        anchor: int = 0,
+        group: int = 0,
+    ) -> None:
         """
         initialize a new instance
 

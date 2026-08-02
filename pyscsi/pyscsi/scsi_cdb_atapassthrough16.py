@@ -5,7 +5,13 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+from pyscsi.utils.converter import CheckDict
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI ata-pass-through command and definitions
@@ -17,7 +23,7 @@ class ATAPassThrough16(SCSICommand):
     A class to send a ATAPassThrough16 command to a ata device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "extend": [0x01, 1],
         "protocol": [0x1E, 1],
@@ -37,25 +43,25 @@ class ATAPassThrough16(SCSICommand):
 
     def __init__(
         self,
-        opcode,
-        protocal,
-        t_length,
-        byte_block,
-        t_dir,
-        t_type,
-        off_line,
-        fetures,
-        count,
-        lba,
-        command,
-        blocksize=0,
-        extra_tl=None,
-        ck_cond=0,
-        device=0x00,
-        control=0,
-        data=None,
-        extend=1,
-    ):
+        opcode: "OpCode",
+        protocal: int,
+        t_length: int,
+        byte_block: int,
+        t_dir: int,
+        t_type: int,
+        off_line: int,
+        fetures: int,
+        count: int,
+        lba: int,
+        command: int,
+        blocksize: int = 0,
+        extra_tl: Optional[int] = None,
+        ck_cond: int = 0,
+        device: int = 0x00,
+        control: int = 0,
+        data: Optional[bytearray] = None,
+        extend: int = 1,
+    ) -> None:
         """
         initialize a new instance
 
@@ -144,7 +150,7 @@ class ATAPassThrough16(SCSICommand):
         )
 
     @staticmethod
-    def scsi_to_ata_lba_convert(lba):
+    def scsi_to_ata_lba_convert(lba: int) -> int:
         """
         This function converts the lba to the ATAPassThrough16->lba field.
 

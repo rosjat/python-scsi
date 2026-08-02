@@ -6,10 +6,17 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from pyscsi.pyscsi.scsi_cdb_persistentreservein import PersistentReserveInReadFullStatus
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
+
 from pyscsi.pyscsi.scsi_enum_persistentreserve import *
 from pyscsi.utils.converter import (
+    CheckDict,
     decode_bits,
     encode_dict,
     scsi_ba_to_int,
@@ -28,7 +35,7 @@ class PersistentReserveOut(SCSICommand):
     A class to hold information from a PersistentReserveOut command to a scsi device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "service_action": [0x1F, 1],
         "scope": [0xF0, 2],
@@ -36,7 +43,7 @@ class PersistentReserveOut(SCSICommand):
         "parameter_list_length": [0xFFFFFFFF, 5],
     }
 
-    _basic_parameter_list_bits = {
+    _basic_parameter_list_bits: CheckDict = {
         "reservation_key": [0xFFFFFFFFFFFFFFFF, 0],
         "service_action_reservation_key": [0xFFFFFFFFFFFFFFFF, 8],
         "spec_i_pt": [0x08, 20],
@@ -44,7 +51,7 @@ class PersistentReserveOut(SCSICommand):
         "aptpl": [0x01, 20],
     }
 
-    _ram_parameter_list_bits = {
+    _ram_parameter_list_bits: CheckDict = {
         "reservation_key": [0xFFFFFFFFFFFFFFFF, 0],
         "service_action_reservation_key": [0xFFFFFFFFFFFFFFFF, 8],
         "unreg": [0x02, 17],
@@ -83,7 +90,7 @@ class PersistentReserveOut(SCSICommand):
         elif service_action == opcode.serviceaction.REGISTER and data.get("spec_i_pt"):
             result = bytearray(28)
             encode_dict(data, cls._basic_parameter_list_bits, result)
-            transport_ids = []
+            transport_ids: List[Any] = []
             for t in data.get("transport_ids", []):
                 transport_ids.append(
                     PersistentReserveInReadFullStatus.marshall_transport_id(t)
@@ -96,7 +103,14 @@ class PersistentReserveOut(SCSICommand):
             encode_dict(data, cls._basic_parameter_list_bits, result)
         return result
 
-    def __init__(self, opcode, service_action, scope=0, pr_type=0, **kwargs):
+    def __init__(
+        self,
+        opcode: "OpCode",
+        service_action: int,
+        scope: int = 0,
+        pr_type: int = 0,
+        **kwargs,
+    ) -> None:
         """
         initialize a new instance
 

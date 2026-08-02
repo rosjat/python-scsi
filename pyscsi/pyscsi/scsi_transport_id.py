@@ -6,6 +6,8 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import Any, Dict
+
 from pyscsi.pyscsi.scsi_enum_persistentreserve import PROTOCOL_ID
 from pyscsi.utils.converter import (
     decode_bits,
@@ -24,7 +26,7 @@ _transport_id_bits = {
 }
 
 
-def _pad4_len(s):
+def _pad4_len(s: str) -> int:
     """
     Calculate the number of bytes necessary to hold the specified string incl a null
     terminator, padded to a multiple of 4 bytes
@@ -36,14 +38,14 @@ def _pad4_len(s):
     return _l
 
 
-def unmarshall_transport_id(data):
+def unmarshall_transport_id(data: bytearray) -> Dict[str, Any]:
     """
     unmarshall TransportID data
 
     :param data: a byte array with TransportID data
     :return: a dict
     """
-    _r = {}
+    _r: Dict[str, Any] = {}
     decode_bits(data, _transport_id_bits, _r)
     # Now decode the SCSI transport protocol specific data (SPC-5 7.6.4)
     # There may be scope for improvement here for protocol experts
@@ -78,7 +80,7 @@ def unmarshall_transport_id(data):
     return _r
 
 
-def marshall_transport_id(data):
+def marshall_transport_id(data: Dict[str, Any]) -> bytearray:
     """
     marshall TransportID data
 

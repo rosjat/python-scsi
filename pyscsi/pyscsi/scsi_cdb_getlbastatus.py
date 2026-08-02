@@ -5,8 +5,14 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 from pyscsi.utils.converter import (
+    CheckDict,
     decode_bits,
     encode_dict,
     scsi_ba_to_int,
@@ -23,19 +29,19 @@ class GetLBAStatus(SCSICommand):
     A class to hold information from a GetLBAStatus command to a scsi device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "service_action": [0x1F, 1],
         "lba": [0xFFFFFFFFFFFFFFFF, 2],
         "alloc_len": [0xFFFFFFFF, 10],
     }
-    _datain_bits = {
+    _datain_bits: CheckDict = {
         "lba": [0xFFFFFFFFFFFFFFFF, 0],
         "num_blocks": [0xFFFFFFFF, 8],
         "p_status": [0x0F, 12],
     }
 
-    def __init__(self, opcode, lba, alloclen=16384):
+    def __init__(self, opcode: "OpCode", lba: int, alloclen: int = 16384) -> None:
         """
         initialize a new instance
 
@@ -52,18 +58,18 @@ class GetLBAStatus(SCSICommand):
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the GetLBAStatus datain.
 
         :param data: a byte array
         :return result: a dict
         """
-        result = {}
+        result: Dict[str, Any] = {}
         _data = data[8 : scsi_ba_to_int(data[:4]) + 4]
-        _lbas = []
+        _lbas: List[Any] = []
         while len(_data):
-            _r = {}
+            _r: Dict[str, Any] = {}
             decode_bits(_data[:16], cls._datain_bits, _r)
 
             _lbas.append(_r)
@@ -73,7 +79,7 @@ class GetLBAStatus(SCSICommand):
         return result
 
     @classmethod
-    def marshall_datain(cls, data):
+    def marshall_datain(cls, data: Dict[str, Any]) -> bytearray:
         """
         Marshall the GetLBAStatus datain.
 

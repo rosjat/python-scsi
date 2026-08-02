@@ -5,8 +5,14 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 from pyscsi.utils.converter import (
+    CheckDict,
     decode_bits,
     encode_dict,
     scsi_ba_to_int,
@@ -23,17 +29,19 @@ class ReportLuns(SCSICommand):
     A class to hold information from a ReportLuns command to a scsi device
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "select_report": [0xFF, 2],
         "alloc_len": [0xFFFFFFFF, 6],
     }
 
-    _datain_bits = {
+    _datain_bits: CheckDict = {
         "lun": [0xFFFFFFFFFFFFFFFF, 0],
     }
 
-    def __init__(self, opcode, report=0x00, alloclen=96):
+    def __init__(
+        self, opcode: "OpCode", report: int = 0x00, alloclen: int = 96
+    ) -> None:
         """
         initialize a new instance
 
@@ -48,21 +56,21 @@ class ReportLuns(SCSICommand):
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the ReportLuns datain buffer.
 
         :param data: a byte array
         :return result: a dic
         """
-        result = {}
+        result: Dict[str, Any] = {}
         # LUN LIST LENGTH counts the list alone; the header is 8 bytes.
         _data = data[8 : scsi_ba_to_int(data[:4]) + 8]
-        _luns = []
+        _luns: List[Any] = []
         _count = 0
         while len(_data):
             #  maybe we drop the whole "put a dict into the list for every lun" thing at all
-            _r = {}
+            _r: Dict[str, Any] = {}
             decode_bits(_data[:8], cls._datain_bits, _r)
             key = "lun%s" % _count
             _r[key] = _r.pop("lun")
@@ -74,7 +82,7 @@ class ReportLuns(SCSICommand):
         return result
 
     @classmethod
-    def marshall_datain(cls, data):
+    def marshall_datain(cls, data: Dict[str, Any]) -> bytearray:
         """
         Marshall the ReportLuns datain.
 

@@ -5,11 +5,16 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
 import pyscsi.pyscsi.scsi_enum_readelementstatus as readelementstatus_enums
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
+
 from pyscsi.utils.converter import (
+    CheckDict,
     decode_bits,
     encode_dict,
     scsi_ba_to_int,
@@ -27,7 +32,7 @@ class ReadElementStatus(SCSICommand):
     A class to hold information from a readelementstatus command
     """
 
-    _cdb_bits = {
+    _cdb_bits: CheckDict = {
         "opcode": [0xFF, 0],
         "voltag": [0x10, 1],
         "element_type": [0x07, 1],
@@ -38,18 +43,18 @@ class ReadElementStatus(SCSICommand):
         "alloc_len": [0xFFFFFF, 7],
     }
 
-    _datain_bits = {
+    _datain_bits: CheckDict = {
         "first_element_address": [0xFFFF, 0],
         "num_elements": [0xFFFF, 2],
     }
 
-    _element_status_page_bits = {
+    _element_status_page_bits: CheckDict = {
         "element_type": [0x0F, 0],
         "pvoltag": [0x80, 1],
         "avoltag": [0x40, 1],
     }
 
-    _element_status_descriptor_bits = {
+    _element_status_descriptor_bits: CheckDict = {
         "element_address": [0xFFFF, 0],
         "except": [0x04, 2],
         "full": [0x01, 2],
@@ -62,15 +67,15 @@ class ReadElementStatus(SCSICommand):
         "source_storage_element_address": [0xFFFF, 10],
     }
 
-    _data_transfer_descriptor_bits = {
+    _data_transfer_descriptor_bits: CheckDict = {
         "access": [0x08, 2],
     }
 
-    _storage_descriptor_bits = {
+    _storage_descriptor_bits: CheckDict = {
         "access": [0x08, 2],
     }
 
-    _import_export_descriptor_bits = {
+    _import_export_descriptor_bits: CheckDict = {
         "oir": [0x80, 2],
         "cmc": [0x40, 2],
         "inenab": [0x20, 2],
@@ -83,15 +88,15 @@ class ReadElementStatus(SCSICommand):
 
     def __init__(
         self,
-        opcode,
-        start,
-        num,
-        element_type=readelementstatus_enums.ELEMENT_TYPE.ALL,
-        voltag=0,
-        curdata=1,
-        dvcid=0,
-        alloclen=16384,
-    ):
+        opcode: "OpCode",
+        start: int,
+        num: int,
+        element_type: int = readelementstatus_enums.ELEMENT_TYPE.ALL,
+        voltag: int = 0,
+        curdata: int = 1,
+        dvcid: int = 0,
+        alloclen: int = 16384,
+    ) -> None:
         """
         initialize a new instance
 
@@ -118,14 +123,14 @@ class ReadElementStatus(SCSICommand):
         )
 
     @classmethod
-    def unmarshall_datain(cls, data):
+    def unmarshall_datain(cls, data: bytearray) -> Dict[str, Any]:
         """
         Unmarshall the ReadElementStatus datain buffer.
 
         :param data: a byte array
         :return result: a dict
         """
-        result = {}
+        result: Dict[str, Any] = {}
         _esd = []
         decode_bits(data, cls._datain_bits, result)
 
@@ -136,7 +141,7 @@ class ReadElementStatus(SCSICommand):
         _bc = scsi_ba_to_int(data[5:8])
         data = data[8 : 8 + _bc]
         while len(data):
-            _r = {}
+            _r: Dict[str, Any] = {}
             _bc = scsi_ba_to_int(data[5:8])
             _edl = scsi_ba_to_int(data[2:4])
 
@@ -144,7 +149,7 @@ class ReadElementStatus(SCSICommand):
             _d = data[8 : 8 + _bc]
             _ed = []
             while len(_d):
-                _rr = {}
+                _rr: Dict[str, Any] = {}
 
                 decode_bits(_d, cls._element_status_descriptor_bits, _rr)
                 _dd = _d[12:]
@@ -172,7 +177,7 @@ class ReadElementStatus(SCSICommand):
         return result
 
     @classmethod
-    def marshall_datain(cls, data):
+    def marshall_datain(cls, data: Dict[str, Any]) -> bytearray:
         """
         Marshall the ReadCapacity16 datain.
 
