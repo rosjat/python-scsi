@@ -39,11 +39,24 @@ Type checking is a separate step:
 
     python-scsi $ mypy
 
+`strict = true` applies to the whole package and the test suite, with no
+per-module exemptions and no disabled error codes. A new module is checked from
+the moment it is added; there is no list to opt into.
+
 `python_version` in `pyproject.toml` pins the analysis target to 3.11, so a
 bare `mypy` checks the floor whatever interpreter you run it under. Pass
 `--python-version` to check another:
 
     python-scsi $ mypy --python-version 3.14
+
+Two things are worth knowing before writing a command class:
+
+* `SCSICommand` is generic in its result type — `SCSICommand[Dict[str, Any]]`
+  for a command whose result is keyed by field name. See the note in
+  `scsi_command.py` for why a single type does not work.
+* Zero-argument `super()` and `typing.Generic` both work in a command class, but
+  only because `SCSIDeviceCommandExceptionMeta` builds each class once. It used
+  to build twice, which broke both.
 
 ## Development container
 
@@ -231,6 +244,8 @@ The repository follows a (mostly) standard layout for Python repositories:
    [pre-commit](https://pre-commit.com/) and its hooks.
  * `pyproject.toml` holds the package metadata and the configuration for
    setuptools, setuptools-scm, pytest, mypy and isort.
+ * `README.md` documents 3.0 onwards and lists the breaking changes;
+   `README-v2.md` is the retired 2.x one.
  * `containers` contains the development container and its harness.
  * `pyscsi` contains the source code of the module that is actually installed
    by pip.
