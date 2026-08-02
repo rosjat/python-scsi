@@ -6,12 +6,37 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from typing import Mapping, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    Mapping,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
-CheckDict = Mapping[str, Union[Sequence[int], Tuple[int, int], Tuple[str, int, int]]]
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode, OpcodeTable
+
+# A field layout entry is one of two shapes:
+#
+#   [bitmask, offset]                  the legacy form
+#   ('b' | 'w' | 'dw', offset, length) a byte/word/dword blob
+#
+# Neither len(val) == 2 nor isinstance(val, tuple) discriminates them: the
+# tables mix lists and tuples for both forms. The element type therefore stays
+# Any and the two readers below cast at the point of use; validate_check_dict
+# enforces the contract at runtime across every table instead.
+FieldNotation = Sequence[Any]
+CheckDict = Mapping[str, FieldNotation]
+
+DecodedValue = Union[int, bytearray]
 
 
-def scsi_int_to_ba(to_convert=0, array_size=4):
+def scsi_int_to_ba(to_convert: int = 0, array_size: int = 4) -> bytearray:
     """
     This function converts a  integer of (8 *array_size)-bit to a bytearray(array_size) in
     BigEndian byte order. Here we use the 32-bit as default.
@@ -30,7 +55,7 @@ def scsi_int_to_ba(to_convert=0, array_size=4):
     return bytearray((to_convert >> i * 8) & 0xFF for i in reversed(range(array_size)))
 
 
-def scsi_ba_to_int(ba):
+def scsi_ba_to_int(ba: Sequence[int]) -> int:
     """
     This function converts a bytearray  in BigEndian byte order
     to an integer.
@@ -41,7 +66,11 @@ def scsi_ba_to_int(ba):
     return sum(ba[i] << ((len(ba) - 1 - i) * 8) for i in range(len(ba)))
 
 
-def decode_bits(data, check_dict, result_dict):
+def decode_bits(
+    data: bytearray,
+    check_dict: CheckDict,
+    result_dict: Dict[str, Any],
+) -> None:
     """
     helper method to perform some simple bit operations
 
@@ -72,8 +101,13 @@ def decode_bits(data, check_dict, result_dict):
         #
 
         val = check_dict[key]
+        # Deliberately left unassigned when no branch matches, which is what
+        # the callers have always seen: the previous iteration's value is
+        # written under this key, and an unmatched first entry raises
+        # UnboundLocalError. Annotating must not change that.
+        value: DecodedValue
         if len(val) == 2:
-            bitmask, byte_pos = val
+            bitmask, byte_pos = cast(Tuple[int, int], val)
             _num = 1
             _bm = bitmask
             while _bm > 0xFF:
@@ -85,18 +119,22 @@ def decode_bits(data, check_dict, result_dict):
                 value >>= 1
             value &= bitmask
         elif val[0] == "b":
-            offset, length = val[1:]
+            _, offset, length = cast(Tuple[str, int, int], val)
             value = data[offset : offset + length]
         elif val[0] == "w":
-            offset, length = val[1:]
+            _, offset, length = cast(Tuple[str, int, int], val)
             value = data[offset : offset + length * 2]
         elif val[0] == "dw":
-            offset, length = val[1:]
+            _, offset, length = cast(Tuple[str, int, int], val)
             value = data[offset : offset + length * 4]
         result_dict.update({key: value})
 
 
-def encode_dict(data_dict, check_dict, result):
+def encode_dict(
+    data_dict: Mapping[str, Any],
+    check_dict: CheckDict,
+    result: bytearray,
+) -> None:
     """
     helper method to perform some simple bit operations
 
@@ -120,7 +158,7 @@ def encode_dict(data_dict, check_dict, result):
 
         val = check_dict[key]
         if len(val) == 2:
-            bitmask, bytepos = val
+            bitmask, bytepos = cast(Tuple[int, int], val)
 
             _num = 1
             _bm = bitmask
@@ -137,17 +175,17 @@ def encode_dict(data_dict, check_dict, result):
             for i in range(len(v)):
                 result[bytepos + i] ^= v[i]
         elif val[0] == "b":
-            offset, length = val[1:]
+            _, offset, length = cast(Tuple[str, int, int], val)
             result[offset : offset + length] = value
         elif val[0] == "w":
-            offset, length = val[1:]
+            _, offset, length = cast(Tuple[str, int, int], val)
             result[offset : offset + length * 2] = value
         elif val[0] == "dw":
-            offset, length = val[1:]
+            _, offset, length = cast(Tuple[str, int, int], val)
             result[offset : offset + length * 4] = value
 
 
-def print_data(data_dict):
+def print_data(data_dict: Mapping[str, Any]) -> None:
     """
     A small method to print out data we generate in this package.
 
@@ -170,7 +208,7 @@ def print_data(data_dict):
                 print("%s -> 0x%02X" % (k, v))
 
 
-def get_opcode(table, part):
+def get_opcode(table: "OpcodeTable", part: str) -> Iterator["OpCode"]:
     """
     A generator that yields OpCode objects from a given opcode table.
 
