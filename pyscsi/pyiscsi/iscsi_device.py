@@ -90,10 +90,12 @@ class ISCSIDevice(metaclass=ExMETA):
         """
         dir = iscsi.scsi_xfer_dir.SCSI_XFER_NONE
         xferlen = 0
-        if len(cmd.datain):
+        # WRITE SAME (16) with NDOB set leaves dataout as None: no buffer is
+        # transferred at all.
+        if cmd.datain:
             dir = iscsi.scsi_xfer_dir.SCSI_XFER_READ
             xferlen = len(cmd.datain)
-        if len(cmd.dataout):
+        if cmd.dataout:
             dir = iscsi.scsi_xfer_dir.SCSI_XFER_WRITE
             xferlen = len(cmd.dataout)
         task = iscsi.Task(cmd.cdb, dir, xferlen)
