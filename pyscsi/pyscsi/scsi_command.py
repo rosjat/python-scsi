@@ -31,9 +31,19 @@ class SCSICommand(metaclass=ExMETA):
     _page_code: Optional[int] = None
     _opcode: Optional["OpCode"] = None
 
+    # ExMETA injects all ten, both families, so all ten are declared. Omitting
+    # any leaves a working attribute that mypy rejects and types as Any;
+    # test_exception_injection pins the two sets together.
+    ACAActive: ClassVar[Type[Exception]]
+    BusyStatus: ClassVar[Type[Exception]]
+    CheckCondition: ClassVar[Type[Exception]]
     CommandNotImplemented: ClassVar[Type[Exception]]
+    ConditionsMet: ClassVar[Type[Exception]]
     MissingBlocksizeException: ClassVar[Type[Exception]]
     OpcodeException: ClassVar[Type[Exception]]
+    ReservationConflict: ClassVar[Type[Exception]]
+    TaskAborted: ClassVar[Type[Exception]]
+    TaskSetFull: ClassVar[Type[Exception]]
 
     def __init__(
         self,
