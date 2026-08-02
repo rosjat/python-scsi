@@ -7,9 +7,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import os
+from types import TracebackType
+from typing import IO, Any, ClassVar, Optional, Type, cast
 
 import pyscsi.pyscsi.scsi_enum_command as scsi_enum_command
+from pyscsi.pyscsi.scsi_command import SCSICommand
 from pyscsi.pyscsi.scsi_exception import SCSIDeviceCommandExceptionMeta as ExMETA
+from pyscsi.pyscsi.scsi_opcode import OpcodeTable
 
 try:
     import sgio
@@ -44,7 +48,21 @@ class SCSIDevice(metaclass=ExMETA):
     Note: The workflow above is already implemented in the SCSI class
     """
 
-    def __init__(self, device, readwrite=False, detect_replugged=True, buffering=-1):
+    ACAActive: ClassVar[Type[Exception]]
+    BusyStatus: ClassVar[Type[Exception]]
+    CheckCondition: ClassVar[Type[Exception]]
+    ConditionsMet: ClassVar[Type[Exception]]
+    ReservationConflict: ClassVar[Type[Exception]]
+    TaskAborted: ClassVar[Type[Exception]]
+    TaskSetFull: ClassVar[Type[Exception]]
+
+    def __init__(
+        self,
+        device: str,
+        readwrite: bool = False,
+        detect_replugged: bool = True,
+        buffering: int = -1,
+    ) -> None:
         """
         initialize a  new instance of a SCSIDevice
         :param device: the file descriptor
@@ -53,11 +71,12 @@ class SCSIDevice(metaclass=ExMETA):
         silently due to replugged events
         :param buffering: Set the amount of buffering. For details, refer to the documentation of the open() built-in
         """
-        self._opcodes = scsi_enum_command.spc
+        self._opcodes: OpcodeTable = scsi_enum_command.spc
         self._file_name = device
         self._read_write = readwrite
-        self._file = None
-        self._ino = None
+        self._file: Optional[IO[bytes]] = None
+        self._ino: Optional[int] = None
+        self._devicetype: int
         self._detect_replugged = detect_replugged
         self._buffering = buffering
 
@@ -66,14 +85,19 @@ class SCSIDevice(metaclass=ExMETA):
         else:
             raise NotImplementedError("No backend implemented for %s" % device)
 
-    def __enter__(self):
+    def __enter__(self) -> "SCSIDevice":
         """
 
         :return:
         """
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         """
 
         :param exc_type:
@@ -83,19 +107,18 @@ class SCSIDevice(metaclass=ExMETA):
         """
         self.close()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
 
         :return:
         """
         return self.__class__.__name__
 
-    def _is_replugged(self):
-        #  type: (SCSIDevice) -> bool
+    def _is_replugged(self) -> bool:
         ino = get_inode(self._file_name)
         return ino != self._ino
 
-    def open(self):
+    def open(self) -> None:
         """
 
         :param dev:
@@ -109,10 +132,10 @@ class SCSIDevice(metaclass=ExMETA):
         )
         self._ino = get_inode(self._file_name)
 
-    def close(self):
-        self._file.close()
+    def close(self) -> None:
+        cast(IO[bytes], self._file).close()
 
-    def execute(self, cmd, en_raw_sense=False):
+    def execute(self, cmd: SCSICommand, en_raw_sense: bool = False) -> None:
         """
         execute a scsi command
 
@@ -138,17 +161,17 @@ class SCSIDevice(metaclass=ExMETA):
                 cmd.raw_sense_data = error.sense
 
     @property
-    def opcodes(self):
+    def opcodes(self) -> OpcodeTable:
         return self._opcodes
 
     @opcodes.setter
-    def opcodes(self, value):
+    def opcodes(self, value: OpcodeTable) -> None:
         self._opcodes = value
 
     @property
-    def devicetype(self):
+    def devicetype(self) -> int:
         return self._devicetype
 
     @devicetype.setter
-    def devicetype(self, value):
+    def devicetype(self, value: int) -> None:
         self._devicetype = value
