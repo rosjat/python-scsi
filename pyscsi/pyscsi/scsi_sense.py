@@ -6,6 +6,8 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import Any, Dict
+
 from pyscsi.utils.converter import decode_bits
 
 #
@@ -1005,11 +1007,14 @@ class SCSICheckCondition(Exception):
         0x80: _vendor_sdata_desc_bits,
     }
 
-    def __init__(self, sense, print_data=False):
+    def __init__(self, sense: bytearray, print_data: bool = False) -> None:
         self.valid = sense[0] & 0x80
         self.response_code = sense[0] & 0x7F
-        self.data = {}
+        self.data: Dict[str, Any] = {}
         self.show_data = print_data
+
+        self.asc: int
+        self.ascq: int
 
         if self.response_code == SENSE_FORMAT_CURRENT_FIXED:
             self.data = self.unmarshall_fixed_format_sense_data(sense)
@@ -1020,17 +1025,17 @@ class SCSICheckCondition(Exception):
             self.asc = self.data["additional_sense_code"]
             self.ascq = self.data["additional_sense_code_qualifier"]
 
-    def _ascq(self):
+    def _ascq(self) -> int:
         return (self.asc << 8) + self.ascq
 
-    def _describe_ascq(self):
+    def _describe_ascq(self) -> str:
         if self.asc in vendor_specific_sense_asc:
             return "Vendor specific ASC"
         if self.ascq in vendor_specific_sense_ascq:
             return "Vendor specific ASCQ"
         return sense_ascq_dict[self._ascq()]
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.show_data:
             self.print_data()
 
@@ -1041,18 +1046,18 @@ class SCSICheckCondition(Exception):
             self._ascq(),
         )
 
-    def print_data(self):
+    def print_data(self) -> None:
         for k, v in self.data.items():
             print("%s -> 0x%02X" % (k, v))
 
     @staticmethod
-    def unmarshall_fixed_format_sense_data(data):
-        result = {}
+    def unmarshall_fixed_format_sense_data(data: bytearray) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
         decode_bits(data, SCSICheckCondition._fixed_format_sdata_bits, result)
         return result
 
     @staticmethod
-    def unmarshall_desc_format_sense_data(data):
-        result = {}
+    def unmarshall_desc_format_sense_data(data: bytearray) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
         decode_bits(data, SCSICheckCondition._desc_format_sdata_bits, result)
         return result
