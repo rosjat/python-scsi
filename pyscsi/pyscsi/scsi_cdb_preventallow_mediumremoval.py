@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI PreventAllowMediumRemoval command and definitions
@@ -22,7 +27,7 @@ class PreventAllowMediumRemoval(SCSICommand):
         "prevent": [0x03, 4],
     }
 
-    def __init__(self, opcode, prevent=0):
+    def __init__(self, opcode: "OpCode", prevent: int = 0) -> None:
         """
         initialize a new instance
 

@@ -5,7 +5,12 @@
 # coding: utf-8
 
 
+from typing import TYPE_CHECKING, Optional
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 from pyscsi.utils.converter import decode_bits, encode_dict
 
 #
@@ -31,17 +36,17 @@ class WriteSame16(SCSICommand):
 
     def __init__(
         self,
-        opcode,
-        blocksize,
-        lba,
-        nb,
-        data,
-        wrprotect=0,
-        anchor=0,
-        unmap=0,
-        ndob=0,
-        group=0,
-    ):
+        opcode: "OpCode",
+        blocksize: int,
+        lba: int,
+        nb: int,
+        data: Optional[bytearray],
+        wrprotect: int = 0,
+        anchor: int = 0,
+        unmap: int = 0,
+        ndob: int = 0,
+        group: int = 0,
+    ) -> None:
         """
         initialize a new instance
 

@@ -108,7 +108,8 @@ def effective_mcsb(mcsb, est):
     except NotImplementedError:
         return "parser-declined"
 
-    sector = result["read_cd"][0] if "read_cd" in result else result[0]
+    # unmarshall_datain keys the result by LBA.
+    sector = result[0]
     value = 0
     for key, bit in BIT_FOR_KEY:
         if key in sector:

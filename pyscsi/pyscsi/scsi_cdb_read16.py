@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI Read16 command and definitions
@@ -29,8 +34,17 @@ class Read16(SCSICommand):
     }
 
     def __init__(
-        self, opcode, blocksize, lba, tl, rdprotect=0, dpo=0, fua=0, rarc=0, group=0
-    ):
+        self,
+        opcode: "OpCode",
+        blocksize: int,
+        lba: int,
+        tl: int,
+        rdprotect: int = 0,
+        dpo: int = 0,
+        fua: int = 0,
+        rarc: int = 0,
+        group: int = 0,
+    ) -> None:
         """
         initialize a new instance
 

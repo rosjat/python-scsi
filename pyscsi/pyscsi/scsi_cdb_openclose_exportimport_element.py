@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI OpenCloseImportExportElement command and definitions
@@ -24,7 +29,7 @@ class OpenCloseImportExportElement(SCSICommand):
         "action_code": [0x1F, 4],
     }
 
-    def __init__(self, opcode, xfer, acode, **kwargs):
+    def __init__(self, opcode: "OpCode", xfer: int, acode: int, **kwargs: Any) -> None:
         """
         initialize a new instance
 

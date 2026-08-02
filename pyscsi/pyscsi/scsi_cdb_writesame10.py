@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI WriteSame10 command and definitions
@@ -28,8 +33,17 @@ class WriteSame10(SCSICommand):
     }
 
     def __init__(
-        self, opcode, blocksize, lba, nb, data, wrprotect=0, anchor=0, unmap=0, group=0
-    ):
+        self,
+        opcode: "OpCode",
+        blocksize: int,
+        lba: int,
+        nb: int,
+        data: bytearray,
+        wrprotect: int = 0,
+        anchor: int = 0,
+        unmap: int = 0,
+        group: int = 0,
+    ) -> None:
         """
         initialize a new instance
 

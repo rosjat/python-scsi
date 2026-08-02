@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI SYNCHRONIZE CACHE 10 command and definitions
@@ -27,7 +32,9 @@ class SynchronizeCache10(SCSICommand):
         "numblks": [0xFFFF, 7],
     }
 
-    def __init__(self, opcode, lba, numblks, immed=0, group=0):
+    def __init__(
+        self, opcode: "OpCode", lba: int, numblks: int, immed: int = 0, group: int = 0
+    ) -> None:
         """
         initialize a new instance
 

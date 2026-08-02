@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI ExchangeMedium command and definitions
@@ -27,7 +32,16 @@ class ExchangeMedium(SCSICommand):
         "inv1": [0x02, 10],
     }
 
-    def __init__(self, opcode, xfer, source, dest1, dest2, inv1=0, inv2=0):
+    def __init__(
+        self,
+        opcode: "OpCode",
+        xfer: int,
+        source: int,
+        dest1: int,
+        dest2: int,
+        inv1: int = 0,
+        inv2: int = 0,
+    ) -> None:
         """
         initialize a new instance
 

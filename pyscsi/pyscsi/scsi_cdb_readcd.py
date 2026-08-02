@@ -5,8 +5,14 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING, Any, Dict
+
 import pyscsi.utils.converter as convert
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
+
 from pyscsi.pyscsi.scsi_enum_readcd import EXPECTED_SECTOR_TYPE
 
 #
@@ -53,7 +59,17 @@ class ReadCd(SCSICommand):
         "mode": [0xFF, 3],
     }
 
-    def __init__(self, opcode, lba=0, tl=0, est=0, dap=0, mcsb=0, c2ei=0, scsb=0):
+    def __init__(
+        self,
+        opcode: "OpCode",
+        lba: int = 0,
+        tl: int = 0,
+        est: int = 0,
+        dap: int = 0,
+        mcsb: int = 0,
+        c2ei: int = 0,
+        scsb: int = 0,
+    ) -> None:
         """
         initialize a new instance
 
@@ -83,14 +99,16 @@ class ReadCd(SCSICommand):
         )
 
     @classmethod
-    def unmarshall_datain(cls, d, lba=0, tl=0, **kwargs):
+    def unmarshall_datain(
+        cls, d: bytearray, lba: int = 0, tl: int = 0, **kwargs: Any
+    ) -> Dict[int, Dict[str, Any]]:
         """
         Unmarshall the ReadCD datain.
 
         :param data: a byte array
         :return result: a dict
         """
-        result = {}
+        result: Dict[int, Dict[str, Any]] = {}
 
         est = kwargs["est"]
         mcsb = kwargs["mcsb"] << 3
@@ -155,7 +173,7 @@ class ReadCd(SCSICommand):
         mcsb = mcsb >> 3
 
         for l in range(lba, lba + tl):
-            r = {}
+            r: Dict[str, Any] = {}
             # SYNC
             if mcsb & 0x10:
                 r["sync"] = d[:12]
@@ -169,7 +187,7 @@ class ReadCd(SCSICommand):
             if mcsb & 0x08:
                 r["sector-subheader"] = []
                 # sub header first copy
-                _b = {}
+                _b: Dict[str, Any] = {}
                 _b["file-number"] = d[0]
                 _b["channel-number"] = d[1]
                 _b["sub-mode"] = d[2]

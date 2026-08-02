@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI InitializeElementStatus command and definitions
@@ -21,7 +26,7 @@ class InitializeElementStatus(SCSICommand):
         "opcode": [0xFF, 0],
     }
 
-    def __init__(self, opcode):
+    def __init__(self, opcode: "OpCode") -> None:
         """
         initialize a new instance
 

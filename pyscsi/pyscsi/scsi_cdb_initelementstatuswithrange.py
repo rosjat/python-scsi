@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI InitializeElementStatusWithRange command and definitions
@@ -26,7 +31,9 @@ class InitializeElementStatusWithRange(SCSICommand):
         "number_of_elements": [0xFFFF, 6],
     }
 
-    def __init__(self, opcode, xfer, elements, rng=0, fast=0):
+    def __init__(
+        self, opcode: "OpCode", xfer: int, elements: int, rng: int = 0, fast: int = 0
+    ) -> None:
         """
         initialize a new instance
 

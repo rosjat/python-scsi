@@ -5,7 +5,12 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+from typing import TYPE_CHECKING
+
 from pyscsi.pyscsi.scsi_command import SCSICommand
+
+if TYPE_CHECKING:
+    from pyscsi.pyscsi.scsi_opcode import OpCode
 
 #
 # SCSI MoveMedium command and definitions
@@ -25,7 +30,9 @@ class MoveMedium(SCSICommand):
         "invert": [0x01, 10],
     }
 
-    def __init__(self, opcode, xfer, source, dest, invert=0):
+    def __init__(
+        self, opcode: "OpCode", xfer: int, source: int, dest: int, invert: int = 0
+    ) -> None:
         """
         initialize a new instance
 
